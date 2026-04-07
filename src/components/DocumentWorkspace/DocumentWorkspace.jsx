@@ -1,14 +1,14 @@
 import { useState, useEffect } from 'react'
 import { 
   FaTimes, FaEdit, FaEye, FaSpellCheck, FaSearch, 
-  FaQuoteRight, FaAlignLeft, FaBrain, FaListOl,
-  FaSave, FaDownload, FaFileAlt 
+  FaQuoteRight, FaAlignLeft, FaListOl,
+  FaSave, FaDownload, FaFileAlt, FaRobot
 } from 'react-icons/fa'
 import GrammarChecker from '../GrammarChecker/GrammarChecker'
 import PlagiarismDetector from '../PlagiarismChecker/PlagiarismDetector'
+import AIDetector from '../AIDetector/AIDetector'
 import CitationManager from '../CitationManager/CitationManager'
 import FormatDocument from '../FormatDocument/FormatDocument'
-import NLPAnalysis from '../NLPAnalysis/NLPAnalysis'
 import SectionDetector from '../NLPAnalysis/SectionDetector'
 
 const DocumentWorkspace = ({ document, onClose, onDocumentUpdate }) => {
@@ -76,9 +76,9 @@ const DocumentWorkspace = ({ document, onClose, onDocumentUpdate }) => {
   const tools = [
     { id: 'grammar', name: 'Grammar Enhancer', icon: FaSpellCheck, color: 'bg-blue-600', hoverColor: 'hover:bg-blue-700' },
     { id: 'plagiarism', name: 'Plagiarism Detector', icon: FaSearch, color: 'bg-red-600', hoverColor: 'hover:bg-red-700' },
+    { id: 'ai-detect', name: 'AI Detector', icon: FaRobot, color: 'bg-purple-600', hoverColor: 'hover:bg-purple-700' },
     { id: 'citations', name: 'Citation Analysis', icon: FaQuoteRight, color: 'bg-purple-600', hoverColor: 'hover:bg-purple-700' },
     { id: 'format', name: 'Format Document', icon: FaAlignLeft, color: 'bg-green-600', hoverColor: 'hover:bg-green-700' },
-    { id: 'nlp', name: 'NLP Analysis', icon: FaBrain, color: 'bg-indigo-600', hoverColor: 'hover:bg-indigo-700' },
     { id: 'sections', name: 'Section Detector', icon: FaListOl, color: 'bg-orange-600', hoverColor: 'hover:bg-orange-700' }
   ]
 
@@ -214,6 +214,13 @@ const DocumentWorkspace = ({ document, onClose, onDocumentUpdate }) => {
         />
       )}
 
+      {activeTool === 'ai-detect' && (
+        <AIDetector
+          document={currentDoc}
+          onClose={() => setActiveTool(null)}
+        />
+      )}
+
       {activeTool === 'citations' && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[60] p-4">
           <div className="bg-white rounded-xl max-w-7xl w-full max-h-[95vh] overflow-hidden flex flex-col">
@@ -252,12 +259,6 @@ const DocumentWorkspace = ({ document, onClose, onDocumentUpdate }) => {
         />
       )}
 
-      {activeTool === 'nlp' && (
-        <NLPAnalysis
-          document={currentDoc}
-          onClose={() => setActiveTool(null)}
-        />
-      )}
 
       {activeTool === 'sections' && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[60] p-4">

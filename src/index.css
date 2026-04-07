@@ -40,3 +40,23 @@ body {
     @apply bg-blue-700;
   }
 }
+
+/* ── TipTap Word-like Editor ─────────────────────────────────────────────── */
+.guided-editor {
+  font-family: "Times New Roman", serif;
+  font-size: 12pt;
+  line-height: 2;
+  color: #111;
+  min-height: 297mm;
+  outline: none;
+  caret-color: #2563eb;
+}
+
+.guided-editor p { margin-bottom: 0; }
+.guided-editor h1 { font-size: 14pt; font-weight: bold; text-align: center; margin-top: 24pt; margin-bottom: 12pt; }
+.guided-editor h2 { font-size: 12pt; font-weight: bold; text-align: left; margin-top: 18pt; margin-bottom: 6pt; }
+.guided-editor h3 { font-size: 12pt; font-style: italic; text-align: left; margin-top: 12pt; margin-bottom: 6pt; }
+
+.guided-editor p[data-doc-style="caption"] { font-size: 10pt; font-style: italic; text-align: center; }
+.guided-editor p[data-doc-style="references"] { text-align: left; }
+.guided-editor:focus { outline: none; }

@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { 
   FaUpload, FaCheckCircle, FaExclamationTriangle, 
-  FaFileAlt, FaLink, FaDownload, FaSpinner, FaPlus, FaEdit, FaTimes, FaBook 
+  FaFileAlt, FaLink, FaDownload, FaSpinner, FaPlus, FaEdit, FaTimes, FaBook, FaDatabase 
 } from 'react-icons/fa'
 import { citationAPI } from '../../services/pythonNlpService'
 
@@ -20,6 +20,37 @@ const CitationManager = ({ document: propDocument }) => {
   const [manualCitations, setManualCitations] = useState([])
   const [editingCitationId, setEditingCitationId] = useState(null)
   const [removedCitationIndices, setRemovedCitationIndices] = useState(new Set())
+
+  // Reference library — persisted across sessions for plagiarism detection
+  const [referenceLibrary, setReferenceLibrary] = useState(() => {
+    try {
+      return JSON.parse(localStorage.getItem('plagiarism_reference_library') || '[]')
+    } catch { return [] }
+  })
+
+  const saveToReferenceLibrary = () => {
+    if (!documentText || !file) return
+    const already = referenceLibrary.some(r => r.name === file.name)
+    if (already) {
+      alert(`"${file.name}" is already in the Reference Library.`)
+      return
+    }
+    const entry = {
+      id: Date.now().toString(),
+      name: file.name,
+      text: documentText,
+      savedAt: new Date().toISOString()
+    }
+    const updated = [entry, ...referenceLibrary]
+    setReferenceLibrary(updated)
+    localStorage.setItem('plagiarism_reference_library', JSON.stringify(updated))
+  }
+
+  const removeFromReferenceLibrary = (id) => {
+    const updated = referenceLibrary.filter(r => r.id !== id)
+    setReferenceLibrary(updated)
+    localStorage.setItem('plagiarism_reference_library', JSON.stringify(updated))
+  }
   const [newCitation, setNewCitation] = useState({
     author: '',
     year: '',
@@ -149,7 +180,8 @@ const CitationManager = ({ document: propDocument }) => {
     APA: 'American Psychological Association (7th ed.)',
     MLA: 'Modern Language Association (9th ed.)',
     Chicago: 'Chicago Manual of Style (17th ed.)',
-    Harvard: 'Harvard Referencing Style'
+    Harvard: 'Harvard Referencing Style',
+    IEEE: 'Institute of Electrical and Electronics Engineers'
   }
 
   const handleFileUpload = async (e) => {
@@ -309,7 +341,20 @@ const CitationManager = ({ document: propDocument }) => {
       
       case 'Harvard':
         return `${citation.author}${citation.year ? ` ${citation.year}` : ''}, ${citation.title}, ${citation.source || ''}${citation.pages ? `, pp.${citation.pages}` : ''}${citation.url ? `, available at: ${citation.url}` : ''}.`
-      
+
+      case 'IEEE': {
+        const authorIEEE = citation.author || ''
+        const parts = []
+        if (citation.source)  parts.push(citation.source)
+        if (citation.volume)  parts.push(`vol. ${citation.volume}`)
+        if (citation.issue)   parts.push(`no. ${citation.issue}`)
+        if (citation.pages)   parts.push(`pp. ${citation.pages}`)
+        if (citation.year)    parts.push(citation.year)
+        const body = parts.length ? ` ${parts.join(', ')}.` : '.'
+        const doiPart = citation.doi ? ` doi: ${citation.doi}` : citation.url ? ` [Online]. Available: ${citation.url}` : ''
+        return `${authorIEEE}, "${citation.title}."${body}${doiPart}`
+      }
+
       default:
         return `${citation.author} (${citation.year}). ${citation.title}. ${citation.source}`
     }
@@ -595,7 +640,22 @@ const CitationManager = ({ document: propDocument }) => {
             <div className="flex items-start gap-3">
               <FaBook className="text-blue-600 text-xl mt-1" />
               <div className="flex-1">
-                <h4 className="font-semibold text-blue-900 mb-2">Reference Document</h4>
+                <div className="flex items-center justify-between mb-2">
+                  <h4 className="font-semibold text-blue-900">Reference Document</h4>
+                  <button
+                    onClick={saveToReferenceLibrary}
+                    disabled={!documentText}
+                    className={`flex items-center gap-2 text-xs px-3 py-1.5 rounded-lg transition-colors ${
+                      referenceLibrary.some(r => r.name === file?.name)
+                        ? 'bg-green-100 text-green-700 cursor-default'
+                        : 'bg-orange-500 hover:bg-orange-600 text-white'
+                    }`}
+                    title="Save this document to the Plagiarism Reference Library"
+                  >
+                    <FaDatabase />
+                    {referenceLibrary.some(r => r.name === file?.name) ? 'Saved to Library' : 'Save to Reference Library'}
+                  </button>
+                </div>
                 <p className="text-sm text-blue-800">
                   <strong>{file.name}</strong> - Use this document as context while adding citations
                 </p>
@@ -978,7 +1038,7 @@ const CitationManager = ({ document: propDocument }) => {
                         )}
                         {citation.year_or_page && (
                           <span className="ml-3">
-                            {citation.style_type?.includes('MLA') ? 'Page' : 'Year'}: 
+                            {citation.style_type?.includes('IEEE') ? 'Ref No.' : citation.style_type?.includes('MLA') ? 'Page' : 'Year'}: 
                             <strong> {citation.year_or_page}</strong>
                           </span>
                         )}
@@ -1209,6 +1269,50 @@ const CitationManager = ({ document: propDocument }) => {
           </div>
         </div>
       )}
+      {/* Reference Library Panel */}
+      {referenceLibrary.length > 0 && (
+        <div className="bg-white rounded-lg border border-orange-200 p-6">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+              <FaDatabase className="text-orange-500" />
+              Plagiarism Reference Library
+            </h3>
+            <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded">
+              {referenceLibrary.length} document{referenceLibrary.length !== 1 ? 's' : ''}
+            </span>
+          </div>
+          <p className="text-xs text-gray-500 mb-4">
+            These documents are saved as reference sources for plagiarism detection. Open the Plagiarism Checker to use them.
+          </p>
+          <div className="space-y-2">
+            {referenceLibrary.map(entry => (
+              <div key={entry.id} className="flex items-center justify-between bg-orange-50 border border-orange-100 rounded-lg px-4 py-3">
+                <div className="flex items-center gap-3 min-w-0">
+                  <FaFileAlt className="text-orange-400 flex-shrink-0" />
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium text-gray-900 truncate">{entry.name}</p>
+                    <p className="text-xs text-gray-500">
+                      {Math.round(entry.text.split(/\s+/).length)} words · Saved {new Date(entry.savedAt).toLocaleDateString()}
+                    </p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => {
+                    if (window.confirm(`Remove "${entry.name}" from the Reference Library?`)) {
+                      removeFromReferenceLibrary(entry.id)
+                    }
+                  }}
+                  className="ml-4 p-1.5 text-red-400 hover:text-red-600 hover:bg-red-50 rounded flex-shrink-0"
+                  title="Remove from library"
+                >
+                  <FaTimes />
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
     </div>
   )
 }

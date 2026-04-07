@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { 
   FaSpellCheck, 
   FaTimes, 
@@ -14,7 +14,7 @@ import {
   FaExclamationTriangle
 } from 'react-icons/fa'
 import { grammarAPI } from '../../services/api'
-import { getSentenceChanges, getChangeStats, createSideBySideComparison, visualizeSentenceDiff } from '../../utils/textDiff'
+import { getSentenceChanges, getChangeStats, createSideBySideComparison, visualizeSentenceDiff, computeWordDiff } from '../../utils/textDiff'
 
 /**
  * Grammar Enhancer Component - Chapter 4 Implementation
@@ -254,6 +254,66 @@ const GrammarEnhancer = ({ text, documentId, onClose, onApplyChanges }) => {
     }
   }
 
+  /**
+   * Build line-preserving inline diff for the full document.
+   * Splits originalText on \n so uploaded formatting is kept.
+   * Changed sentences are rendered with word-level highlights:
+   *   removed words  → red background + strikethrough
+   *   added/changed words → green background + bold
+   */
+  const docDiffElements = useMemo(() => {
+    if (!originalText) return null
+    const lines = originalText.split('\n')
+    const changedSents = (changes || []).filter(c => c.changed && c.original?.trim())
+
+    if (changedSents.length === 0) {
+      return lines.flatMap((line, li) => [
+        <span key={`L${li}`}>{line}</span>,
+        ...(li < lines.length - 1 ? [<br key={`br${li}`} />] : []),
+      ])
+    }
+
+    // Build map: original sentence text → computed word diff tokens
+    const sentDiffs = {}
+    changedSents.forEach(c => {
+      sentDiffs[c.original.trim()] = computeWordDiff(
+        c.original.trim(),
+        (c.enhanced || c.original).trim()
+      )
+    })
+
+    return lines.flatMap((line, li) => {
+      // Progressively split the line at each changed sentence
+      let segments = [{ type: 'text', text: line }]
+      for (const [origSent, diffs] of Object.entries(sentDiffs)) {
+        const next = []
+        for (const seg of segments) {
+          if (seg.type !== 'text') { next.push(seg); continue }
+          const pos = seg.text.indexOf(origSent)
+          if (pos === -1) { next.push(seg); continue }
+          if (pos > 0) next.push({ type: 'text', text: seg.text.slice(0, pos) })
+          next.push({ type: 'diff', diffs })
+          const after = seg.text.slice(pos + origSent.length)
+          if (after) next.push({ type: 'text', text: after })
+        }
+        segments = next
+      }
+
+      const els = segments.flatMap((seg, si) => {
+        if (seg.type === 'text') return [<span key={`L${li}-s${si}`}>{seg.text}</span>]
+        return seg.diffs.map((tok, ti) => {
+          if (tok.type === 'remove')
+            return <span key={`L${li}-s${si}-t${ti}`} className="bg-red-100 text-red-700 line-through rounded px-px">{tok.text}</span>
+          if (tok.type === 'add')
+            return <span key={`L${li}-s${si}-t${ti}`} className="bg-green-100 text-green-800 font-semibold rounded px-px">{tok.text}</span>
+          return <span key={`L${li}-s${si}-t${ti}`}>{tok.text}</span>
+        })
+      })
+      if (li < lines.length - 1) els.push(<br key={`br${li}`} />)
+      return els
+    })
+  }, [originalText, changes])
+
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-lg max-w-6xl w-full max-h-[90vh] overflow-hidden flex flex-col shadow-2xl">
@@ -434,16 +494,21 @@ const GrammarEnhancer = ({ text, documentId, onClose, onApplyChanges }) => {
                   </div>
                 </div>
 
-                {/* Enhanced Text */}
+                {/* Enhanced Text — Inline Diff View */}
                 <div>
-                  <h3 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
+                  <h3 className="font-semibold text-gray-900 mb-2 flex items-center gap-2 flex-wrap">
                     <span className="inline-block w-3 h-3 rounded-full bg-indigo-400"></span>
-                    Enhanced Text
+                    Enhanced
+                    <span className="text-xs text-gray-400 font-normal flex items-center gap-1">
+                      (<span className="bg-red-100 text-red-700 line-through px-1 rounded">removed</span>
+                      &nbsp;/&nbsp;
+                      <span className="bg-green-100 text-green-800 font-semibold px-1 rounded">added</span>)
+                    </span>
                   </h3>
                   <div className="bg-indigo-50 p-4 rounded-lg border border-indigo-200 max-h-64 overflow-y-auto">
-                    <p className="text-gray-700 whitespace-pre-wrap text-sm leading-relaxed font-mono">
-                      {enhancedText}
-                    </p>
+                    <div className="text-gray-700 text-sm leading-relaxed font-mono">
+                      {docDiffElements}
+                    </div>
                   </div>
                 </div>
               </div>
@@ -500,15 +565,17 @@ const GrammarEnhancer = ({ text, documentId, onClose, onApplyChanges }) => {
                                 )}
                               </div>
                               
-                              <div className="text-sm space-y-2">
-                                <div>
-                                  <span className="text-gray-600 font-medium">Original:</span>
-                                  <p className="text-gray-700 mt-1">{change.original}</p>
-                                </div>
-                                <div>
-                                  <span className="text-gray-600 font-medium">Enhanced:</span>
-                                  <p className="text-indigo-800 font-medium mt-1">{change.enhanced}</p>
-                                </div>
+                              <div className="text-sm">
+                                <span className="text-xs text-gray-500 font-medium uppercase tracking-wide">Track Changes</span>
+                                <p className="mt-1.5 leading-relaxed">
+                                  {computeWordDiff(change.original || '', change.enhanced || '').map((tok, ti) => {
+                                    if (tok.type === 'remove')
+                                      return <span key={ti} className="bg-red-100 text-red-700 line-through rounded px-px">{tok.text}</span>
+                                    if (tok.type === 'add')
+                                      return <span key={ti} className="bg-green-100 text-green-800 font-semibold rounded px-px">{tok.text}</span>
+                                    return <span key={ti}>{tok.text}</span>
+                                  })}
+                                </p>
                               </div>
                             </div>
                           </div>

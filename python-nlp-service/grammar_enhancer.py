@@ -13,12 +13,18 @@ Features:
 """
 
 import re
+import os
 import time
+from collections import OrderedDict
 from typing import List, Dict, Tuple, Optional
 from transformers import pipeline, AutoTokenizer, AutoModelForSeq2SeqLM
 import logging
 from nltk import sent_tokenize
 import torch
+
+# Maximum number of sentence→enhancement pairs kept in memory at once.
+# Entries beyond this limit are evicted least-recently-used first.
+_GRAMMAR_CACHE_MAX = 512
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -27,10 +33,11 @@ logger = logging.getLogger(__name__)
 class GrammarEnhancer:
     """
     Grammar and style enhancement using T5 Transformer
-    
+
     Implements: Algorithm 1 - SequenceEnhancementPipeline (Chapter 4.1.2)
-    Model: google/flan-t5-base (250M parameters)
-    Training Dataset: CoNLL 2014 Shared Task (1.3M examples)
+    Base model:  google/flan-t5-base (250M parameters)
+    Fine-tuning: grammarly/coedit dataset (GEC, Fluency, Formality, Coherence)
+                 trained with train_grammar.py  →  saved to ./grammar-finetuned/
     Evaluation Metrics:
     - Token Accuracy: 89.3%
     - Sentence Accuracy: 71.2%
@@ -39,30 +46,51 @@ class GrammarEnhancer:
     - F1-Score: 0.889
     - Average Latency: 2.8s per document
     """
-    
+
+    # Fine-tuned checkpoint is used when present; falls back to base model.
+    _FINETUNED_DIR = os.path.join(os.path.dirname(__file__), "grammar-finetuned")
+
+    @classmethod
+    def _resolve_model_name(cls, override: str = None) -> str:
+        """Return fine-tuned path if it exists, otherwise HuggingFace base model."""
+        if override:
+            return override
+        if os.path.isdir(cls._FINETUNED_DIR) and os.path.exists(
+            os.path.join(cls._FINETUNED_DIR, "config.json")
+        ):
+            logger.info("Fine-tuned checkpoint found: %s", cls._FINETUNED_DIR)
+            return cls._FINETUNED_DIR
+        return "google/flan-t5-base"
+
     # Model configuration (Chapter 4.2.1)
-    MODEL_NAME = "google/flan-t5-base"
+    # Prefixes must exactly match CATEGORY_PREFIX in train_grammar.py so the
+    # fine-tuned model receives the same prompt format it was trained on.
     ENHANCEMENT_MODES = {
         'balanced': 'Improve grammar and clarity: ',
         'academic': 'Improve grammar and academic tone: ',
-        'formal': 'Fix grammar and use formal language: ',
-        'casual': 'Fix grammar and keep casual tone: '
+        'formal':   'Fix grammar and use formal language: ',
+        'casual':   'Improve grammar and clarity: ',
     }
     
     def __init__(self, model_name: str = None, use_gpu: bool = True):
         """
-        Initialize the grammar enhancer with T5 model
-        
+        Initialize the grammar enhancer with T5 model.
+
         Args:
-            model_name: HuggingFace model ID (default: google/flan-t5-base)
+            model_name: HuggingFace model ID or local path.
+                        Defaults to the fine-tuned checkpoint in
+                        ./grammar-finetuned/ when present, otherwise
+                        falls back to google/flan-t5-base.
             use_gpu: Whether to use GPU if available
         """
-        self.model_name = model_name or self.MODEL_NAME
+        self.model_name = self._resolve_model_name(model_name)
         self.pipeline = None
         self.tokenizer = None
         self.model = None
         self.device = 'cuda' if (use_gpu and torch.cuda.is_available()) else 'cpu'
-        self.model_cache = {}  # Cache for recent enhancements
+        # LRU cache: OrderedDict used as a fixed-capacity store.
+        # Capped at _GRAMMAR_CACHE_MAX entries to prevent unbounded RAM growth.
+        self.model_cache: OrderedDict = OrderedDict()
         self.initialize_model()
     
     def initialize_model(self):
@@ -77,26 +105,33 @@ class GrammarEnhancer:
             # Load tokenizer
             self.tokenizer = AutoTokenizer.from_pretrained(self.model_name)
             
-            # Load model with proper device mapping to avoid meta tensor issues
+            # Load model onto the correct device.
+            # When device_map="auto" is used, accelerate distributes layers
+            # across available devices itself — the pipeline must NOT also
+            # receive a `device` argument in that case (causes the conflict).
             if self.device == 'cuda':
                 self.model = AutoModelForSeq2SeqLM.from_pretrained(
                     self.model_name,
                     device_map="auto",
-                    torch_dtype=torch.float16 if torch.cuda.is_available() else torch.float32
+                    torch_dtype=torch.float32,  # GTX 960 Maxwell: fp32 is faster
+                )
+                self.model.eval()
+                # device_map="auto" → do NOT pass device= to the pipeline
+                self.pipeline = pipeline(
+                    "text2text-generation",
+                    model=self.model,
+                    tokenizer=self.tokenizer,
                 )
             else:
                 self.model = AutoModelForSeq2SeqLM.from_pretrained(self.model_name)
                 self.model.to(self.device)
-            
-            self.model.eval()
-            
-            # Create pipeline for inference
-            self.pipeline = pipeline(
-                "text2text-generation",
-                model=self.model,
-                tokenizer=self.tokenizer,
-                device=0 if self.device == 'cuda' else -1
-            )
+                self.model.eval()
+                self.pipeline = pipeline(
+                    "text2text-generation",
+                    model=self.model,
+                    tokenizer=self.tokenizer,
+                    device=-1,
+                )
             
             logger.info(f"Model loaded successfully: {self.model_name}")
             logger.info(f"Model parameters: {self.model.num_parameters() / 1e6:.1f}M")
@@ -212,9 +247,10 @@ class GrammarEnhancer:
             return text, 0.0
         
         try:
-            # Check cache
+            # Check cache — move to end on hit (LRU promotion)
             cache_key = f"{text}:{mode}"
             if cache_key in self.model_cache:
+                self.model_cache.move_to_end(cache_key)
                 return self.model_cache[cache_key]
             
             # Get mode-specific prefix
@@ -234,10 +270,14 @@ class GrammarEnhancer:
             if result and len(result) > 0:
                 enhanced = result[0].get('generated_text', text).strip()
                 confidence = self._calculate_confidence(text, enhanced)
-                
-                # Cache result
+
+                # LRU insert: move to end (most-recently-used position)
                 self.model_cache[cache_key] = (enhanced, confidence)
-                
+                self.model_cache.move_to_end(cache_key)
+                # Evict oldest entry if over capacity
+                if len(self.model_cache) > _GRAMMAR_CACHE_MAX:
+                    self.model_cache.popitem(last=False)
+
                 return enhanced, confidence
             
             return text, 0.0

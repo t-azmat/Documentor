@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useNavigate, useLocation, Link } from 'react-router-dom'
-import { FaFileAlt, FaLayerGroup, FaQuoteRight, FaSearch, FaBars, FaTimes, FaSignOutAlt, FaMagic } from 'react-icons/fa'
+import { FaFileAlt, FaQuoteRight, FaSearch, FaBars, FaTimes, FaSignOutAlt, FaMagic, FaRobot, FaAlignLeft, FaFilePdf, FaFileWord, FaCode } from 'react-icons/fa'
 
 const Layout = ({ children }) => {
   const navigate = useNavigate()
@@ -10,9 +10,10 @@ const Layout = ({ children }) => {
   const menuItems = [
     { icon: FaFileAlt, label: 'Documents', path: '/documents' },
     { icon: FaMagic, label: 'Grammar Enhancer', path: '/grammar-enhancer' },
-    { icon: FaLayerGroup, label: 'Templates', path: '/templates' },
+    { icon: FaAlignLeft, label: 'Formatting', path: '/formatting' },
     { icon: FaQuoteRight, label: 'Citations', path: '/citations' },
     { icon: FaSearch, label: 'Plagiarism', path: '/plagiarism' },
+    { icon: FaRobot, label: 'AI Detector', path: '/ai-detector' },
   ]
 
   const handleLogout = () => {
@@ -66,8 +67,28 @@ const Layout = ({ children }) => {
                   : 'text-blue-100 hover:bg-blue-700 hover:text-white'
               }`}
             >
-              <item.icon className="text-lg" />
-              <span className="font-medium">{item.label}</span>
+              <item.icon className="text-lg flex-shrink-0" />
+              <div className="flex-1 text-left">
+                <div className="flex items-center gap-2">
+                  <span className="font-medium">{item.label}</span>
+                  {item.badge && (
+                    <span className="text-xs bg-yellow-400 text-yellow-900 px-1.5 py-0.5 rounded font-bold leading-none">
+                      {item.badge}
+                    </span>
+                  )}
+                </div>
+                {item.path === '/formatting' && (
+                  <span className="flex items-center gap-1.5 mt-0.5">
+                    <FaFilePdf className="text-red-300 text-xs" />
+                    <span className="text-blue-200 text-xs">PDF</span>
+                    <FaFileWord className="text-blue-300 text-xs" />
+                    <span className="text-blue-200 text-xs">DOCX</span>
+                    <FaCode className="text-green-300 text-xs" />
+                    <span className="text-blue-200 text-xs">LaTeX</span>
+                  </span>
+                )}
+
+              </div>
             </button>
           ))}
         </nav>

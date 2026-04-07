@@ -215,3 +215,55 @@ export const createSideBySideComparison = (changes) => {
       diff: visualizeSentenceDiff(change.original, change.enhanced),
     }))
 }
+
+/**
+ * Compute an accurate word-level diff between two strings using LCS.
+ * Preserves whitespace tokens so results can be rendered as React spans.
+ *
+ * Returns [{type: 'unchanged'|'add'|'remove', text: string}]
+ *
+ * Performance guard: if token-product > 80 000 the function falls back
+ * to a single remove+add pair (avoids O(m·n) memory on very long texts).
+ */
+export const computeWordDiff = (original, enhanced) => {
+  if (!original && !enhanced) return []
+  if (!original) return [{ type: 'add', text: enhanced }]
+  if (!enhanced) return [{ type: 'remove', text: original }]
+  if (original === enhanced) return [{ type: 'unchanged', text: original }]
+
+  const A = original.match(/\S+|\s+/g) || []
+  const B = enhanced.match(/\S+|\s+/g) || []
+
+  if (A.length * B.length > 80000) {
+    return [{ type: 'remove', text: original }, { type: 'add', text: enhanced }]
+  }
+
+  const m = A.length
+  const n = B.length
+  // dp[i][j] = LCS length for A[i..] vs B[j..]
+  const dp = Array.from({ length: m + 1 }, () => new Uint16Array(n + 1))
+  for (let i = m - 1; i >= 0; i--) {
+    for (let j = n - 1; j >= 0; j--) {
+      dp[i][j] = A[i] === B[j]
+        ? dp[i + 1][j + 1] + 1
+        : Math.max(dp[i + 1][j], dp[i][j + 1])
+    }
+  }
+
+  const result = []
+  let i = 0, j = 0
+  while (i < m || j < n) {
+    if (i < m && j < n && A[i] === B[j]) {
+      result.push({ type: 'unchanged', text: A[i] })
+      i++; j++
+    } else if (j < n && (i >= m || dp[i][j + 1] >= dp[i + 1][j])) {
+      // Whitespace-only additions stay neutral to avoid spurious highlights
+      result.push({ type: B[j].trim() ? 'add' : 'unchanged', text: B[j] })
+      j++
+    } else {
+      result.push({ type: A[i].trim() ? 'remove' : 'unchanged', text: A[i] })
+      i++
+    }
+  }
+  return result
+}

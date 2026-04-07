@@ -73,13 +73,60 @@ class DocumentSectionDetector:
         """Initialize section detector"""
         self.classifier = None
         self.initialize_classifier()
-    
+
+    # ------------------------------------------------------------------
+    # Classifier training
+    # ------------------------------------------------------------------
+
+    def _build_training_data(self):
+        """
+        Synthesise labelled feature vectors for each section type.
+
+        Since no labelled corpus is available at runtime, we generate
+        statistically realistic samples from per-section feature profiles
+        (keyword_count, word_count, sentence_count, uppercase_ratio,
+        citation_count).  40 samples per class → 280 training rows total.
+        """
+        # (low, high) ranges for each feature per section type.
+        # Ranges derived from typical academic document statistics.
+        profiles = {
+            'abstract':     dict(kw=(3, 8),  wc=(100, 300),  sc=(5,  15), ur=(0.05, 0.15), cc=(0, 2)),
+            'introduction': dict(kw=(2, 7),  wc=(300, 800),  sc=(15, 40), ur=(0.05, 0.15), cc=(2, 10)),
+            'methodology':  dict(kw=(2, 6),  wc=(400, 1000), sc=(20, 50), ur=(0.05, 0.12), cc=(2, 8)),
+            'results':      dict(kw=(2, 6),  wc=(300, 800),  sc=(15, 40), ur=(0.06, 0.20), cc=(0, 5)),
+            'discussion':   dict(kw=(2, 5),  wc=(300, 800),  sc=(15, 40), ur=(0.05, 0.15), cc=(3, 12)),
+            'conclusion':   dict(kw=(2, 6),  wc=(150, 500),  sc=(8,  25), ur=(0.05, 0.15), cc=(0, 5)),
+            'references':   dict(kw=(1, 4),  wc=(100, 500),  sc=(5,  30), ur=(0.10, 0.40), cc=(0, 0)),
+        }
+
+        rng = np.random.default_rng(42)
+        X, y = [], []
+        SAMPLES_PER_CLASS = 40
+
+        for label, p in profiles.items():
+            for _ in range(SAMPLES_PER_CLASS):
+                row = [
+                    float(rng.integers(p['kw'][0],  p['kw'][1]  + 1)),
+                    float(rng.integers(p['wc'][0],  p['wc'][1]  + 1)),
+                    float(rng.integers(p['sc'][0],  p['sc'][1]  + 1)),
+                    float(rng.uniform( p['ur'][0],  p['ur'][1])),
+                    float(rng.integers(p['cc'][0],  p['cc'][1]  + 1)),
+                ]
+                X.append(row)
+                y.append(label)
+
+        return np.array(X, dtype=float), y
+
     def initialize_classifier(self):
-        """Initialize Naive Bayes classifier for section classification"""
+        """Initialize and train Naive Bayes classifier for section classification"""
         try:
-            # Create a simple Naive Bayes classifier
             self.classifier = GaussianNB()
-            logger.info("Section detector initialized with Naive Bayes classifier")
+            X, y = self._build_training_data()
+            self.classifier.fit(X, y)
+            logger.info(
+                "Section detector: GaussianNB trained on %d synthetic samples (%d classes)",
+                len(y), len(self.classifier.classes_)
+            )
         except Exception as e:
             logger.error(f"Error initializing classifier: {e}")
     
@@ -148,14 +195,15 @@ class DocumentSectionDetector:
         sections = []
         
         # Define regex patterns for section headers
+        # Handles: "Abstract", "ABSTRACT", "1. Introduction", "2.1 Methods", "Introduction:", etc.
         patterns = {
-            'abstract': r'(?:^|\n)\s*(?:abstract|summary|overview)\s*(?:\n|$)',
-            'introduction': r'(?:^|\n)\s*(?:\d+\.?\s+)?(?:introduction|background|motivation)\s*(?:\n|$)',
-            'methodology': r'(?:^|\n)\s*(?:\d+\.?\s+)?(?:methodology|methods?|approach|procedure|research design)\s*(?:\n|$)',
-            'results': r'(?:^|\n)\s*(?:\d+\.?\s+)?(?:results?|findings?|outcomes?)\s*(?:\n|$)',
-            'discussion': r'(?:^|\n)\s*(?:\d+\.?\s+)?(?:discussion|analysis|interpretation|implications)\s*(?:\n|$)',
-            'conclusion': r'(?:^|\n)\s*(?:\d+\.?\s+)?(?:conclusion|conclusions|concluding remarks)\s*(?:\n|$)',
-            'references': r'(?:^|\n)\s*(?:references?|bibliography|cited works|works cited)\s*(?:\n|$)'
+            'abstract':      r'(?:^|\n)[ \t]*(?:\d+[\.\)]\s*)?(?:abstract|summary|overview)[ \t]*[:\-]?\s*(?:\n|$)',
+            'introduction':  r'(?:^|\n)[ \t]*(?:\d+[\.\)]\s*)?(?:introduction|background|motivation|problem statement|aims and objectives)[ \t]*[:\-]?\s*(?:\n|$)',
+            'methodology':   r'(?:^|\n)[ \t]*(?:\d+[\.\)]\s*)?(?:methodology|methods?|approach|procedure|research design|data collection|experimental setup)[ \t]*[:\-]?\s*(?:\n|$)',
+            'results':       r'(?:^|\n)[ \t]*(?:\d+[\.\)]\s*)?(?:results?|findings?|outcomes?|experimental results)[ \t]*[:\-]?\s*(?:\n|$)',
+            'discussion':    r'(?:^|\n)[ \t]*(?:\d+[\.\)]\s*)?(?:discussion|analysis|interpretation|implications|limitations)[ \t]*[:\-]?\s*(?:\n|$)',
+            'conclusion':    r'(?:^|\n)[ \t]*(?:\d+[\.\)]\s*)?(?:conclusions?|concluding remarks?|summary and conclusions?|final remarks?)[ \t]*[:\-]?\s*(?:\n|$)',
+            'references':    r'(?:^|\n)[ \t]*(?:\d+[\.\)]\s*)?(?:references?|bibliography|cited works|works cited|references cited)[ \t]*[:\-]?\s*(?:\n|$)',
         }
         
         # Find all matches
@@ -248,23 +296,32 @@ class DocumentSectionDetector:
     
     def _calculate_confidence(self, features: np.ndarray, section_type: str) -> float:
         """
-        Calculate confidence score for section detection
-        
+        Calculate confidence score for section detection.
+
+        Uses the trained GaussianNB (predict_proba for the target class).
+        Falls back to a keyword heuristic if the classifier is unavailable.
+
         Args:
-            features: Feature vector
+            features: Feature vector (5 elements)
             section_type: Detected section type
-            
+
         Returns:
             Confidence score (0.0-1.0)
         """
-        # Simple heuristic: normalize features and calculate average
+        if self.classifier is not None:
+            try:
+                proba = self.classifier.predict_proba([features])[0]
+                classes = list(self.classifier.classes_)
+                if section_type in classes:
+                    return round(float(proba[classes.index(section_type)]), 3)
+            except Exception as exc:
+                logger.warning(f"predict_proba failed, using heuristic: {exc}")
+
+        # Heuristic fallback (classifier unavailable or section_type not in classes)
         normalized = (features - features.min() + 1) / (features.max() - features.min() + 1)
         confidence = float(np.mean(normalized))
-        
-        # Boost confidence for strong keyword matches
         if features[0] > 3:  # High keyword count
             confidence = min(1.0, confidence + 0.2)
-        
         return round(min(1.0, confidence), 3)
     
     def _infer_document_type(self, sections: List[Dict]) -> str:

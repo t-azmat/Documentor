@@ -2,6 +2,7 @@ import fs from 'fs'
 import path from 'path'
 import { fileURLToPath } from 'url'
 import axios from 'axios'
+import FormData from 'form-data'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
@@ -19,7 +20,6 @@ export const extractTextFromFile = async (filePath, fileType) => {
     }
 
     // Use centralized Python file extractor for all formats
-    const FormData = require('form-data')
     const formData = new FormData()
     
     const fileStream = fs.createReadStream(filePath)

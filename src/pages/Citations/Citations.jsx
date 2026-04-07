@@ -2,45 +2,48 @@ import { useState } from 'react'
 import { FaQuoteRight, FaPlus, FaCopy, FaTrash, FaFileUpload } from 'react-icons/fa'
 import CitationManager from '../../components/CitationManager/CitationManager'
 
-const Citations = () => {
-  const [citations, setCitations] = useState([
-    {
-      id: 1,
-      type: 'Book',
-      authors: 'Smith, J.',
-      year: '2020',
-      title: 'Research Methods in Psychology',
-      publisher: 'Academic Press',
-      citation: 'Smith, J. (2020). Research Methods in Psychology. Academic Press.',
-    },
-    {
-      id: 2,
-      type: 'Journal',
-      authors: 'Jones, A., & Brown, B.',
-      year: '2021',
-      title: 'Modern Data Analysis Techniques',
-      journal: 'Journal of Data Science',
-      volume: '15',
-      pages: '123-145',
-      citation: 'Jones, A., & Brown, B. (2021). Modern Data Analysis Techniques. Journal of Data Science, 15, 123-145.',
-    },
-  ])
+const emptyCitation = { type: 'Book', authors: '', year: '', title: '', publisher: '' }
 
+const formatCitationString = (c, style) => {
+  const { type, authors, year, title, publisher } = c
+  if (style === 'APA') return `${authors} (${year}). ${title}. ${publisher}.`
+  if (style === 'MLA') return `${authors}. "${title}." ${publisher}, ${year}.`
+  if (style === 'Chicago') return `${authors}. ${title}. ${publisher}, ${year}.`
+  if (style === 'Harvard') return `${authors} ${year}, '${title}', ${publisher}.`
+  if (style === 'IEEE') return `${authors}, "${title}," ${publisher}, ${year}.`
+  return `${authors} (${year}). ${title}. ${publisher}.`
+}
+
+const Citations = () => {
+  const [citations, setCitations] = useState([])
   const [selectedStyle, setSelectedStyle] = useState('APA')
   const [showAddForm, setShowAddForm] = useState(false)
   const [activeTab, setActiveTab] = useState('analyze') // 'analyze' or 'manual'
+  const [newCitation, setNewCitation] = useState(emptyCitation)
+  const [formError, setFormError] = useState(null)
 
   const styles = ['APA', 'MLA', 'Chicago', 'Harvard', 'IEEE']
 
-  const handleCopyCitation = (citation) => {
-    navigator.clipboard.writeText(citation)
-    alert('Citation copied to clipboard!')
+  const handleCopyCitation = (citationText) => {
+    navigator.clipboard.writeText(citationText)
   }
 
   const handleDeleteCitation = (id) => {
     if (window.confirm('Are you sure you want to delete this citation?')) {
       setCitations(citations.filter(c => c.id !== id))
     }
+  }
+
+  const handleAddCitationSubmit = () => {
+    if (!newCitation.authors.trim() || !newCitation.title.trim()) {
+      setFormError('Author and title are required')
+      return
+    }
+    const citationStr = formatCitationString(newCitation, selectedStyle)
+    setCitations(prev => [...prev, { ...newCitation, id: Date.now(), citation: citationStr }])
+    setNewCitation(emptyCitation)
+    setFormError(null)
+    setShowAddForm(false)
   }
 
   return (
@@ -165,14 +168,14 @@ const Citations = () => {
                       
                       <div className="bg-gray-50 rounded-lg p-3 mb-3">
                         <p className="text-sm text-gray-700 font-mono">
-                          {citation.citation}
+                          {formatCitationString(citation, selectedStyle)}
                         </p>
                       </div>
                     </div>
 
                     <div className="flex gap-2 ml-4">
                       <button
-                        onClick={() => handleCopyCitation(citation.citation)}
+                        onClick={() => handleCopyCitation(formatCitationString(citation, selectedStyle))}
                         className="p-2 hover:bg-blue-50 rounded-lg transition-colors"
                         title="Copy Citation"
                       >
@@ -216,7 +219,11 @@ const Citations = () => {
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Citation Type
                   </label>
-                  <select className="input-field w-full">
+                  <select
+                    className="input-field w-full"
+                    value={newCitation.type}
+                    onChange={e => setNewCitation(p => ({ ...p, type: e.target.value }))}
+                  >
                     <option>Book</option>
                     <option>Journal Article</option>
                     <option>Website</option>
@@ -226,23 +233,27 @@ const Citations = () => {
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Author(s)
+                    Author(s) <span className="text-red-500">*</span>
                   </label>
                   <input
                     type="text"
                     placeholder="Last name, First initial"
                     className="input-field w-full"
+                    value={newCitation.authors}
+                    onChange={e => setNewCitation(p => ({ ...p, authors: e.target.value }))}
                   />
                 </div>
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Title
+                    Title <span className="text-red-500">*</span>
                   </label>
                   <input
                     type="text"
                     placeholder="Title of the work"
                     className="input-field w-full"
+                    value={newCitation.title}
+                    onChange={e => setNewCitation(p => ({ ...p, title: e.target.value }))}
                   />
                 </div>
 
@@ -255,6 +266,8 @@ const Citations = () => {
                       type="text"
                       placeholder="2024"
                       className="input-field w-full"
+                      value={newCitation.year}
+                      onChange={e => setNewCitation(p => ({ ...p, year: e.target.value }))}
                     />
                   </div>
                   <div>
@@ -265,23 +278,26 @@ const Citations = () => {
                       type="text"
                       placeholder="Publisher name"
                       className="input-field w-full"
+                      value={newCitation.publisher}
+                      onChange={e => setNewCitation(p => ({ ...p, publisher: e.target.value }))}
                     />
                   </div>
                 </div>
               </div>
 
+              {formError && (
+                <p className="mt-3 text-sm text-red-600 font-medium">{formError}</p>
+              )}
+
               <div className="flex gap-3 mt-6">
                 <button
-                  onClick={() => setShowAddForm(false)}
+                  onClick={() => { setShowAddForm(false); setFormError(null); setNewCitation(emptyCitation) }}
                   className="btn-secondary flex-1"
                 >
                   Cancel
                 </button>
                 <button
-                  onClick={() => {
-                    alert('Citation will be added')
-                    setShowAddForm(false)
-                  }}
+                  onClick={handleAddCitationSubmit}
                   className="btn-primary flex-1"
                 >
                   Add Citation

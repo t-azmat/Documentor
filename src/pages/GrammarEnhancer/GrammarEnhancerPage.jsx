@@ -1,19 +1,68 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useMemo } from 'react'
 import { FaMagic, FaUpload, FaFileAlt, FaSpellCheck, FaCheck, FaUndo, FaCopy, FaDownload } from 'react-icons/fa'
 import { grammarAPI } from '../../services/api'
 import { fileExtractorAPI } from '../../services/pythonNlpService'
-import { getSentenceChanges, getChangeStats } from '../../utils/textDiff'
+import { getSentenceChanges, getChangeStats, computeWordDiff } from '../../utils/textDiff'
 
 const GrammarEnhancerPage = () => {
   const [inputText, setInputText] = useState('')
   const [enhancedText, setEnhancedText] = useState('')
   const [suggestions, setSuggestions] = useState([])
   const [stats, setStats] = useState(null)
+  const [sentenceChanges, setSentenceChanges] = useState([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
   const [activeTab, setActiveTab] = useState('editor')
   const [hasEnhanced, setHasEnhanced] = useState(false)
   const textareaRef = useRef(null)
+
+  /**
+   * Line-preserving inline diff: splits inputText on \n so paragraph/line
+   * structure from the uploaded file is kept, then highlights changed words.
+   */
+  const docDiff = useMemo(() => {
+    if (!inputText || sentenceChanges.length === 0) return null
+    const changed = sentenceChanges.filter(c => c.changed && c.original?.trim())
+    if (changed.length === 0) return null
+
+    const sentDiffs = {}
+    changed.forEach(c => {
+      sentDiffs[c.original.trim()] = computeWordDiff(
+        c.original.trim(),
+        (c.enhanced || c.original).trim()
+      )
+    })
+
+    const lines = inputText.split('\n')
+    return lines.flatMap((line, li) => {
+      let segments = [{ type: 'text', text: line }]
+      for (const [origSent, diffs] of Object.entries(sentDiffs)) {
+        const next = []
+        for (const seg of segments) {
+          if (seg.type !== 'text') { next.push(seg); continue }
+          const pos = seg.text.indexOf(origSent)
+          if (pos === -1) { next.push(seg); continue }
+          if (pos > 0) next.push({ type: 'text', text: seg.text.slice(0, pos) })
+          next.push({ type: 'diff', diffs })
+          const after = seg.text.slice(pos + origSent.length)
+          if (after) next.push({ type: 'text', text: after })
+        }
+        segments = next
+      }
+      const els = segments.flatMap((seg, si) => {
+        if (seg.type === 'text') return [<span key={`L${li}-s${si}`}>{seg.text}</span>]
+        return seg.diffs.map((tok, ti) => {
+          if (tok.type === 'remove')
+            return <span key={`L${li}-s${si}-t${ti}`} className="bg-red-100 text-red-700 line-through rounded px-px">{tok.text}</span>
+          if (tok.type === 'add')
+            return <span key={`L${li}-s${si}-t${ti}`} className="bg-green-100 text-green-800 font-semibold rounded px-px">{tok.text}</span>
+          return <span key={`L${li}-s${si}-t${ti}`}>{tok.text}</span>
+        })
+      })
+      if (li < lines.length - 1) els.push(<br key={`br${li}`} />)
+      return els
+    })
+  }, [inputText, sentenceChanges])
 
   const handleEnhance = async () => {
     if (!inputText.trim()) {
@@ -35,9 +84,10 @@ const GrammarEnhancerPage = () => {
       setSuggestions(suggestionsResponse.data.data.suggestions || [])
 
       // Calculate stats
-      const sentenceChanges = getSentenceChanges(inputText, enhanced)
-      const changeStats = getChangeStats(sentenceChanges)
+      const localChanges = getSentenceChanges(inputText, enhanced)
+      const changeStats = getChangeStats(localChanges)
       setStats(changeStats)
+      setSentenceChanges(localChanges)
 
       setActiveTab('results')
     } catch (err) {
@@ -65,6 +115,7 @@ const GrammarEnhancerPage = () => {
     setEnhancedText('')
     setSuggestions([])
     setStats(null)
+    setSentenceChanges([])
     setError(null)
     setHasEnhanced(false)
     setActiveTab('editor')
@@ -231,16 +282,39 @@ const GrammarEnhancerPage = () => {
           {/* Results Tab */}
           {activeTab === 'results' && hasEnhanced && (
             <div className="space-y-4">
-              {/* Enhanced Text Display */}
-              <div className="bg-white rounded-lg border border-gray-200 overflow-hidden shadow-sm">
-                <div className="bg-indigo-50 border-b border-indigo-200 px-4 py-3">
-                  <h3 className="font-semibold text-gray-900">Enhanced Version</h3>
+              {/* Side-by-Side Comparison */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+
+                {/* Left: Original */}
+                <div className="bg-white rounded-lg border border-gray-200 overflow-hidden shadow-sm">
+                  <div className="bg-gray-50 border-b border-gray-200 px-4 py-3 flex items-center gap-2">
+                    <span className="inline-block w-3 h-3 rounded-full bg-gray-400"></span>
+                    <h3 className="font-semibold text-gray-900 text-sm">Original</h3>
+                  </div>
+                  <div className="w-full h-96 p-4 overflow-y-auto font-mono text-sm whitespace-pre-wrap leading-relaxed text-gray-700">
+                    {inputText}
+                  </div>
                 </div>
-                <textarea
-                  value={enhancedText}
-                  readOnly
-                  className="w-full h-96 p-4 resize-none focus:outline-none font-mono text-sm bg-indigo-50"
-                />
+
+                {/* Right: Enhanced with diff */}
+                <div className="bg-white rounded-lg border border-gray-200 overflow-hidden shadow-sm">
+                  <div className="bg-indigo-50 border-b border-indigo-200 px-4 py-3 flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <span className="inline-block w-3 h-3 rounded-full bg-indigo-400"></span>
+                      <h3 className="font-semibold text-gray-900 text-sm">Enhanced</h3>
+                    </div>
+                    {docDiff && (
+                      <span className="text-xs text-gray-500 flex items-center gap-1.5">
+                        <span className="bg-red-100 text-red-700 line-through px-1 rounded">removed</span>
+                        <span className="text-gray-400">/</span>
+                        <span className="bg-green-100 text-green-800 font-semibold px-1 rounded">added</span>
+                      </span>
+                    )}
+                  </div>
+                  <div className="w-full h-96 p-4 overflow-y-auto font-mono text-sm bg-indigo-50 whitespace-pre-wrap leading-relaxed">
+                    {docDiff || enhancedText}
+                  </div>
+                </div>
               </div>
 
               {/* Action Buttons */}
