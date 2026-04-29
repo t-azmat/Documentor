@@ -60,3 +60,301 @@ body {
 .guided-editor p[data-doc-style="caption"] { font-size: 10pt; font-style: italic; text-align: center; }
 .guided-editor p[data-doc-style="references"] { text-align: left; }
 .guided-editor:focus { outline: none; }
+
+/* DocuMentor app theme, adapted from the provided documentor.jsx design. */
+.documentor-shell {
+  --doc-bg: #0c0e13;
+  --doc-surface: #13161e;
+  --doc-surface-2: #1a1e29;
+  --doc-border: rgba(255, 255, 255, 0.1);
+  --doc-gold: #e8c547;
+  --doc-gold-soft: rgba(232, 197, 71, 0.12);
+  --doc-text: #eef0f6;
+  --doc-muted: #8a93a5;
+  background: var(--doc-bg);
+  color: var(--doc-text);
+}
+
+.documentor-shell[data-theme="light"] {
+  --doc-bg: #f5f7fb;
+  --doc-surface: #ffffff;
+  --doc-surface-2: #eef2f7;
+  --doc-border: rgba(15, 23, 42, 0.12);
+  --doc-gold: #b88711;
+  --doc-gold-soft: rgba(184, 135, 17, 0.12);
+  --doc-text: #111827;
+  --doc-muted: #5f6878;
+  background: var(--doc-bg);
+  color: var(--doc-text);
+}
+
+.documentor-shell[data-theme="light"].bg-\[\#0c0e13\],
+.documentor-shell[data-theme="light"] .bg-\[\#0c0e13\] {
+  background-color: var(--doc-bg) !important;
+}
+
+.documentor-shell[data-theme="light"] .bg-\[\#11141b\],
+.documentor-shell[data-theme="light"] .bg-\[\#13161e\] {
+  background-color: var(--doc-surface) !important;
+}
+
+.documentor-shell[data-theme="light"] .bg-\[\#1a1e29\],
+.documentor-shell[data-theme="light"] .bg-white\/5 {
+  background-color: var(--doc-surface-2) !important;
+}
+
+.documentor-shell[data-theme="light"] .border-white\/10,
+.documentor-shell[data-theme="light"] .border-white\/20 {
+  border-color: var(--doc-border) !important;
+}
+
+.documentor-shell[data-theme="light"] .text-white,
+.documentor-shell[data-theme="light"] .text-slate-100,
+.documentor-shell[data-theme="light"] .text-slate-200,
+.documentor-shell[data-theme="light"] .text-slate-300 {
+  color: var(--doc-text) !important;
+}
+
+.documentor-shell[data-theme="light"] .text-slate-400,
+.documentor-shell[data-theme="light"] .text-slate-500,
+.documentor-shell[data-theme="light"] .text-slate-600 {
+  color: var(--doc-muted) !important;
+}
+
+.documentor-shell[data-theme="light"] .placeholder\:text-slate-600::placeholder,
+.documentor-shell[data-theme="light"] .placeholder\:text-slate-500::placeholder {
+  color: #7a8495 !important;
+}
+
+.documentor-shell .text-\[\#e8c547\] {
+  color: var(--doc-gold) !important;
+}
+
+.documentor-shell .bg-\[\#e8c547\] {
+  background-color: var(--doc-gold) !important;
+}
+
+.documentor-shell .border-\[\#e8c547\] {
+  border-color: var(--doc-gold) !important;
+}
+
+.documentor-shell .bg-\[\#e8c547\]\/10,
+.documentor-shell .bg-\[\#e8c547\]\/12 {
+  background-color: var(--doc-gold-soft) !important;
+}
+
+.documentor-shell .border-\[\#e8c547\]\/20,
+.documentor-shell .border-\[\#e8c547\]\/30 {
+  border-color: color-mix(in srgb, var(--doc-gold) 32%, transparent) !important;
+}
+
+.documentor-shell[data-theme="light"] .shadow-2xl,
+.documentor-shell[data-theme="light"] .shadow-xl,
+.documentor-shell[data-theme="light"] .shadow-lg,
+.documentor-shell[data-theme="light"] .shadow-md,
+.documentor-shell[data-theme="light"] .shadow-sm {
+  box-shadow: 0 16px 44px rgba(15, 23, 42, 0.08) !important;
+}
+
+.documentor-shell.bg-gradient-to-br,
+.documentor-shell .bg-gradient-to-br {
+  background-image: none !important;
+}
+
+.documentor-shell .bg-primary-600,
+.documentor-shell .bg-primary-700 {
+  background-color: var(--doc-gold) !important;
+  color: #0c0e13 !important;
+}
+
+.documentor-shell .text-primary-600,
+.documentor-shell .text-primary-700 {
+  color: var(--doc-gold) !important;
+}
+
+.documentor-shell .border-primary-500,
+.documentor-shell .border-primary-600 {
+  border-color: var(--doc-gold) !important;
+}
+
+.documentor-shell input[type="checkbox"] {
+  accent-color: var(--doc-gold);
+}
+
+.documentor-shell main::-webkit-scrollbar,
+.documentor-shell nav::-webkit-scrollbar,
+.documentor-shell *::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.documentor-shell main::-webkit-scrollbar-track,
+.documentor-shell nav::-webkit-scrollbar-track,
+.documentor-shell *::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.documentor-shell main::-webkit-scrollbar-thumb,
+.documentor-shell nav::-webkit-scrollbar-thumb,
+.documentor-shell *::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.16);
+  border-radius: 999px;
+}
+
+.documentor-shell .bg-white,
+.documentor-shell .card {
+  background-color: var(--doc-surface) !important;
+  border-color: var(--doc-border) !important;
+  color: var(--doc-text);
+  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.2);
+}
+
+.documentor-shell .bg-gray-50,
+.documentor-shell .bg-gray-100,
+.documentor-shell .bg-blue-50,
+.documentor-shell .bg-indigo-50,
+.documentor-shell .bg-purple-50 {
+  background-color: var(--doc-surface-2) !important;
+}
+
+.documentor-shell .bg-blue-100,
+.documentor-shell .bg-indigo-100,
+.documentor-shell .bg-purple-100 {
+  background-color: var(--doc-gold-soft) !important;
+}
+
+.documentor-shell .bg-blue-600,
+.documentor-shell .bg-blue-700,
+.documentor-shell .bg-indigo-600,
+.documentor-shell .bg-purple-600,
+.documentor-shell .btn-primary {
+  background-color: var(--doc-gold) !important;
+  color: #0c0e13 !important;
+  border-color: var(--doc-gold) !important;
+}
+
+.documentor-shell .hover\:bg-blue-700:hover,
+.documentor-shell .hover\:bg-indigo-700:hover,
+.documentor-shell .hover\:bg-purple-700:hover,
+.documentor-shell .btn-primary:hover {
+  background-color: #d7b63d !important;
+}
+
+.documentor-shell .btn-secondary {
+  background-color: var(--doc-surface-2) !important;
+  color: var(--doc-text) !important;
+  border-color: var(--doc-border) !important;
+}
+
+.documentor-shell .btn-secondary:hover,
+.documentor-shell .hover\:bg-gray-50:hover,
+.documentor-shell .hover\:bg-gray-100:hover,
+.documentor-shell .hover\:bg-blue-50:hover {
+  background-color: var(--doc-gold-soft) !important;
+}
+
+.documentor-shell .text-gray-900,
+.documentor-shell .text-gray-800,
+.documentor-shell .text-gray-700,
+.documentor-shell .text-blue-900,
+.documentor-shell .text-indigo-900,
+.documentor-shell .text-purple-900 {
+  color: var(--doc-text) !important;
+}
+
+.documentor-shell .text-gray-600,
+.documentor-shell .text-gray-500,
+.documentor-shell .text-gray-400,
+.documentor-shell .text-blue-800,
+.documentor-shell .text-indigo-800,
+.documentor-shell .text-purple-800 {
+  color: var(--doc-muted) !important;
+}
+
+.documentor-shell .text-blue-600,
+.documentor-shell .text-blue-700,
+.documentor-shell .text-indigo-600,
+.documentor-shell .text-indigo-700,
+.documentor-shell .text-purple-600,
+.documentor-shell .text-purple-700 {
+  color: var(--doc-gold) !important;
+}
+
+.documentor-shell .border-gray-100,
+.documentor-shell .border-gray-200,
+.documentor-shell .border-gray-300,
+.documentor-shell .border-blue-200,
+.documentor-shell .border-indigo-200,
+.documentor-shell .border-purple-200 {
+  border-color: var(--doc-border) !important;
+}
+
+.documentor-shell .border-blue-600,
+.documentor-shell .border-indigo-600,
+.documentor-shell .border-purple-600 {
+  border-color: var(--doc-gold) !important;
+}
+
+.documentor-shell input,
+.documentor-shell textarea,
+.documentor-shell select,
+.documentor-shell .input-field {
+  background-color: var(--doc-surface-2) !important;
+  border-color: var(--doc-border) !important;
+  color: var(--doc-text) !important;
+}
+
+.documentor-shell input::placeholder,
+.documentor-shell textarea::placeholder {
+  color: #687184 !important;
+}
+
+.documentor-shell input:focus,
+.documentor-shell textarea:focus,
+.documentor-shell select:focus,
+.documentor-shell .input-field:focus {
+  border-color: rgba(232, 197, 71, 0.55) !important;
+  box-shadow: 0 0 0 3px rgba(232, 197, 71, 0.14) !important;
+}
+
+.documentor-shell header form input,
+.documentor-shell header form input:focus {
+  background: transparent !important;
+  border-color: transparent !important;
+  box-shadow: none !important;
+}
+
+.documentor-shell table,
+.documentor-shell pre,
+.documentor-shell code {
+  color: var(--doc-text);
+}
+
+.documentor-shell .divide-gray-200 > :not([hidden]) ~ :not([hidden]) {
+  border-color: var(--doc-border) !important;
+}
+
+.documentor-shell .shadow-sm,
+.documentor-shell .shadow-md,
+.documentor-shell .shadow-lg,
+.documentor-shell .shadow-xl,
+.documentor-shell .shadow-2xl {
+  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.22) !important;
+}
+
+.documentor-shell .rounded-xl,
+.documentor-shell .rounded-2xl {
+  border-radius: 0.625rem !important;
+}
+
+.documentor-shell .p-6 > .mb-6:first-child h1,
+.documentor-shell .p-6 > .mb-8:first-child h1,
+.documentor-shell .p-6 > .flex:first-child h1 {
+  color: var(--doc-text) !important;
+}
+
+.documentor-shell .p-6 > .mb-6:first-child p,
+.documentor-shell .p-6 > .mb-8:first-child p,
+.documentor-shell .p-6 > .flex:first-child p {
+  color: var(--doc-muted) !important;
+}

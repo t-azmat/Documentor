@@ -1,13 +1,15 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { FaGoogle, FaFacebook, FaApple } from 'react-icons/fa'
+import { FaGoogle, FaFacebook, FaApple, FaMoon, FaSun } from 'react-icons/fa'
 import { MdEmail, MdLock, MdPerson } from 'react-icons/md'
 import useAuthStore from '../../store/authStore'
 import { authAPI } from '../../services/api'
+import useTheme from '../../hooks/useTheme'
 
 const Signup = () => {
   const navigate = useNavigate()
   const { login } = useAuthStore()
+  const { theme, isDark, toggleTheme } = useTheme()
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -58,7 +60,15 @@ const Signup = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-primary-50 via-white to-accent-50 flex items-center justify-center p-4">
+    <div className="documentor-shell min-h-screen bg-gradient-to-br from-primary-50 via-white to-accent-50 flex items-center justify-center p-4" data-theme={theme}>
+      <button
+        onClick={toggleTheme}
+        className="fixed right-4 top-4 z-20 flex h-10 w-10 items-center justify-center rounded-lg border border-white/10 bg-white/5 text-slate-300 shadow-lg transition hover:bg-white/10 hover:text-white"
+        aria-label={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
+        title={isDark ? 'Light mode' : 'Dark mode'}
+      >
+        {isDark ? <FaSun /> : <FaMoon />}
+      </button>
       <div className="max-w-md w-full">
         {/* Logo and Header */}
         <div className="text-center mb-8">

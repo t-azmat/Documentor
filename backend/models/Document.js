@@ -35,7 +35,34 @@ const documentSchema = new mongoose.Schema({
   },
   content: {
     raw: String,
-    formatted: String
+    formatted: String,
+    structure: [mongoose.Schema.Types.Mixed],
+    mediaReferences: [{
+      type: {
+        type: String,
+        enum: ['image', 'graph', 'chart']
+      },
+      filename: String,
+      caption: String,
+      savedPath: String,
+      relativePath: String,
+      dimensions: {
+        width: Number,
+        height: Number
+      },
+      altText: String
+    }],
+    structuredBlocks: [mongoose.Schema.Types.Mixed],
+    tableOfContents: [{
+      level: Number,
+      text: String,
+      index: Number
+    }],
+    docling: mongoose.Schema.Types.Mixed
+  },
+  media: {
+    storagePath: String,
+    files: [String]
   },
   formatting: {
     style: {
@@ -56,12 +83,24 @@ const documentSchema = new mongoose.Schema({
   metadata: {
     wordCount: Number,
     pageCount: Number,
+    tableCount: { type: Number, default: 0 },
+    imageCount: { type: Number, default: 0 },
+    graphCount: { type: Number, default: 0 },
     sentenceCount: Number,
     paragraphCount: Number,
     readingTime: Number,
     author: String,
     abstract: String,
-    keywords: [String]
+    keywords: [String],
+    uploadedAt: Date,
+    lastProcessedAt: Date,
+    requestedStyle: {
+      type: String,
+      enum: ['APA', 'MLA', 'IEEE', 'Chicago', 'Harvard'],
+      default: 'APA'
+    },
+    nlpProcessingFailed: Boolean,
+    extractionBackend: String
   },
   nlp: {
     processed: {
@@ -151,6 +190,9 @@ const documentSchema = new mongoose.Schema({
 // Index for faster queries
 documentSchema.index({ userId: 1, createdAt: -1 })
 documentSchema.index({ status: 1 })
+documentSchema.index({ 'metadata.tableCount': 1 })
+documentSchema.index({ 'metadata.imageCount': 1 })
+documentSchema.index({ 'metadata.graphCount': 1 })
 
 const Document = mongoose.model('Document', documentSchema)
 

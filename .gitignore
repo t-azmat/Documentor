@@ -5,6 +5,7 @@ yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
+*.log
 
 # Build outputs
 dist
@@ -51,6 +52,8 @@ venv/
 # Uploads
 uploads/
 python-nlp-service/uploads/
+formatting_engine/.runtime/
+formatting_engine/runtime/
 
 # Logs
 logs
@@ -60,3 +63,4 @@ logs
 *.tmp
 *.temp
 .cache
+tmp_engine_test/

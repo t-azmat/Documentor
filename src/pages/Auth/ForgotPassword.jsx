@@ -1,10 +1,12 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { MdEmail, MdArrowBack } from 'react-icons/md'
-import { FaCheckCircle } from 'react-icons/fa'
+import { FaCheckCircle, FaMoon, FaSun } from 'react-icons/fa'
 import { authAPI } from '../../services/api'
+import useTheme from '../../hooks/useTheme'
 
 const ForgotPassword = () => {
+  const { theme, isDark, toggleTheme } = useTheme()
   const [email, setEmail] = useState('')
   const [loading, setLoading] = useState(false)
   const [emailSent, setEmailSent] = useState(false)
@@ -27,7 +29,15 @@ const ForgotPassword = () => {
 
   if (emailSent) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-primary-50 via-white to-accent-50 flex items-center justify-center p-4">
+      <div className="documentor-shell min-h-screen bg-gradient-to-br from-primary-50 via-white to-accent-50 flex items-center justify-center p-4" data-theme={theme}>
+        <button
+          onClick={toggleTheme}
+          className="fixed right-4 top-4 z-20 flex h-10 w-10 items-center justify-center rounded-lg border border-white/10 bg-white/5 text-slate-300 shadow-lg transition hover:bg-white/10 hover:text-white"
+          aria-label={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
+          title={isDark ? 'Light mode' : 'Dark mode'}
+        >
+          {isDark ? <FaSun /> : <FaMoon />}
+        </button>
         <div className="max-w-md w-full">
           <div className="card text-center">
             <div className="inline-flex items-center justify-center w-20 h-20 bg-green-100 rounded-full mb-6">
@@ -57,7 +67,15 @@ const ForgotPassword = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-primary-50 via-white to-accent-50 flex items-center justify-center p-4">
+    <div className="documentor-shell min-h-screen bg-gradient-to-br from-primary-50 via-white to-accent-50 flex items-center justify-center p-4" data-theme={theme}>
+      <button
+        onClick={toggleTheme}
+        className="fixed right-4 top-4 z-20 flex h-10 w-10 items-center justify-center rounded-lg border border-white/10 bg-white/5 text-slate-300 shadow-lg transition hover:bg-white/10 hover:text-white"
+        aria-label={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
+        title={isDark ? 'Light mode' : 'Dark mode'}
+      >
+        {isDark ? <FaSun /> : <FaMoon />}
+      </button>
       <div className="max-w-md w-full">
         {/* Back Button */}
         <Link 

@@ -218,17 +218,27 @@ class CitationConverter:
         if not m or len(m.group(1)) > 250:
             return rec
         authors_raw, year, rest = m.group(1).strip(), m.group(2), m.group(3)
-        rec["authors"] = self._parse_authors_apa(authors_raw)
+        author_list = self._parse_authors_apa(authors_raw)
+        
+        if not author_list:
+            return rec
+        if len(year) != 4 and not re.match(r'^\d{4}[a-z]$', year):
+            return rec
+
+        rec["authors"] = author_list
         rec["year"] = year
 
         # Title (up to first period that is NOT an abbreviation)
-        tm = re.match(r"^([^.]+(?:\.[^.A-Z]{0,3}[A-Z][^.]+)*)\.\s*(.*)", rest)
-        if tm:
+        tm = re.match(r"^([^.]+(?:\.[^.A-Z\s]{1,3}[^\w.]*)*)\.\s*(.*)", rest)
+        if tm and len(tm.group(1).strip()) > 0:
             rec["title"] = tm.group(1).strip()
             rest2 = tm.group(2)
         else:
             rec["title"] = rest.strip()
             rest2 = ""
+            
+        if not rec["title"]:
+            return dict(EMPTY_RECORD, raw=raw)
 
         # Journal vol(issue), pages
         jm = re.search(r"([A-Za-z &]+),?\s*(\d+)(?:\((\d+)\))?,?\s*([\d–\-]+)\.", rest2)

@@ -1,64 +1,114 @@
 import { useState } from 'react'
-import { FaCog, FaFileAlt, FaCheckCircle, FaChartLine, FaUsers } from 'react-icons/fa'
+import { Link } from 'react-router-dom'
+import { FaChartLine, FaCheckCircle, FaCog, FaFileAlt, FaFolderOpen, FaMoon, FaServer, FaShieldAlt, FaSun, FaUsers } from 'react-icons/fa'
+import useAuthStore from '../../store/authStore'
+import useTheme from '../../hooks/useTheme'
+import AdminOverview from './AdminOverview'
 import StyleTemplates from './StyleTemplates'
 import FormatTester from './FormatTester'
 import SystemLogs from './SystemLogs'
 import UserManagement from './UserManagement'
+import ProjectsOverview from './ProjectsOverview'
 
 const Admin = () => {
-  const [activeTab, setActiveTab] = useState('templates')
+  const [activeTab, setActiveTab] = useState('overview')
+  const { user, isAuthenticated } = useAuthStore()
+  const { theme, isDark, toggleTheme } = useTheme()
+  const isAdmin = isAuthenticated && user?.role === 'admin'
 
-  const tabs = [
+  const adminTabs = [
+    { id: 'overview', label: 'Overview', icon: FaServer, component: AdminOverview },
+    { id: 'projects', label: 'Projects', icon: FaFolderOpen, component: ProjectsOverview },
     { id: 'templates', label: 'Style Templates', icon: FaFileAlt, component: StyleTemplates },
-    { id: 'formatter', label: 'Test Formatting', icon: FaCheckCircle, component: FormatTester },
+    { id: 'formatter', label: 'Formatting Jobs', icon: FaCheckCircle, component: FormatTester },
     { id: 'logs', label: 'System Logs', icon: FaChartLine, component: SystemLogs },
     { id: 'users', label: 'User Management', icon: FaUsers, component: UserManagement },
   ]
 
+  const tabs = isAdmin
+    ? adminTabs
+    : [{ id: 'overview', label: 'Overview', icon: FaServer, component: AdminOverview }]
+
   const ActiveComponent = tabs.find(tab => tab.id === activeTab)?.component
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Standalone top bar */}
-      <header className="bg-gradient-to-r from-blue-600 to-blue-700 shadow-md">
-        <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 bg-white rounded-lg flex items-center justify-center">
-              <FaFileAlt className="text-blue-600 text-lg" />
+    <div className="documentor-shell min-h-screen bg-[#0c0e13] text-slate-100" data-theme={theme}>
+      <header className="border-b border-white/10 bg-[#11141b] shadow-sm">
+        <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-5 py-4">
+          <Link to="/dashboard" className="flex min-w-0 items-center gap-3 transition-opacity hover:opacity-90">
+            <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg bg-[#e8c547] text-sm font-black text-[#0c0e13] shadow-[0_0_28px_rgba(232,197,71,0.22)]">
+              D
             </div>
-            <span className="text-white text-lg font-bold">DocuMentor</span>
-            <span className="text-blue-200 text-sm font-medium">/ Admin</span>
+            <div className="min-w-0">
+              <div className="truncate text-lg font-black text-white">
+                Docu<span className="text-[#e8c547]">Mentor</span>
+                <span className="ml-2 text-sm font-semibold text-slate-500">/ Admin</span>
+              </div>
+              <p className="truncate text-xs text-slate-500">Operations and system control</p>
+            </div>
+          </Link>
+          <div className="hidden items-center gap-2 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-slate-300 sm:flex">
+            <FaUsers className="text-[#e8c547]" />
+            <span>{isAdmin ? 'Admin workspace' : 'Public stats mode'}</span>
           </div>
-          <div className="flex items-center gap-2 text-blue-100 text-sm">
-            <FaUsers className="text-base" />
-            <span>User Activity Monitor</span>
-          </div>
+          <button
+            onClick={toggleTheme}
+            className="flex h-10 w-10 items-center justify-center rounded-lg border border-white/10 bg-white/5 text-slate-300 transition hover:bg-white/10 hover:text-white"
+            aria-label={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
+            title={isDark ? 'Light mode' : 'Dark mode'}
+          >
+            {isDark ? <FaSun /> : <FaMoon />}
+          </button>
         </div>
       </header>
 
-      <div className="p-5">
-      <div className="max-w-7xl mx-auto">
-        {/* Header */}
-        <div className="mb-6">
-          <div className="flex items-center gap-3 mb-2">
-            <FaCog className="text-3xl text-blue-600" />
-            <h1 className="text-2xl font-bold text-gray-900">Admin Panel</h1>
-          </div>
-          <p className="text-gray-600">Manage style templates, test formatting, monitor system, and control users</p>
-        </div>
+      <main className="mx-auto max-w-7xl px-5 py-6">
+        <section className="relative mb-6 overflow-hidden rounded-xl border border-white/10 bg-[#11141b] p-6 shadow-2xl">
+          <div className="pointer-events-none absolute -left-24 -top-24 h-72 w-72 rounded-full bg-[#e8c547]/10 blur-3xl" />
+          <div className="relative flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+            <div>
+              <div className="mb-2 flex items-center gap-3">
+                <div className="rounded-lg bg-[#e8c547]/10 p-3 text-[#e8c547]">
+                  <FaCog className="text-2xl" />
+                </div>
+                <div>
+                  <h1 className="text-2xl font-black text-white">Admin Panel</h1>
+                  <p className="mt-1 text-sm text-slate-400">
+                    {isAdmin
+                      ? 'Manage style templates, test formatting, monitor system, and control users'
+                      : 'Stats mode is available publicly for now. Sign in as an admin to unlock management tools.'}
+                  </p>
+                </div>
+              </div>
+            </div>
 
-        {/* Tabs */}
-        <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
-          <div className="border-b border-gray-200">
-            <div className="flex overflow-x-auto">
+            {!isAdmin ? (
+              <Link
+                to="/login"
+                className="inline-flex items-center justify-center gap-2 rounded-lg bg-[#e8c547] px-4 py-2 text-sm font-black text-[#0c0e13] transition hover:bg-[#d7b63d]"
+              >
+                <FaShieldAlt />
+                Go to login
+              </Link>
+            ) : (
+              <div className="rounded-lg border border-emerald-400/20 bg-emerald-400/10 px-4 py-3 text-sm font-semibold text-emerald-300">
+                Admin privileges active
+              </div>
+            )}
+          </div>
+        </section>
+
+        <section className="overflow-hidden rounded-xl border border-white/10 bg-[#13161e] shadow-2xl">
+          <div className="border-b border-white/10 bg-[#11141b]">
+            <div className="flex overflow-x-auto px-2 pt-2">
               {tabs.map(tab => (
                 <button
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id)}
-                  className={`flex items-center gap-2 px-6 py-4 border-b-2 font-medium transition-colors whitespace-nowrap ${
+                  className={`flex items-center gap-2 whitespace-nowrap rounded-t-lg border-b-2 px-5 py-4 text-sm font-bold transition-colors ${
                     activeTab === tab.id
-                      ? 'border-blue-600 text-blue-600 bg-blue-50'
-                      : 'border-transparent text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+                      ? 'border-[#e8c547] bg-[#e8c547]/10 text-[#e8c547]'
+                      : 'border-transparent text-slate-400 hover:bg-white/5 hover:text-white'
                   }`}
                 >
                   <tab.icon />
@@ -68,13 +118,11 @@ const Admin = () => {
             </div>
           </div>
 
-          {/* Tab Content */}
-          <div className="p-6">
+          <div className="p-5 sm:p-6">
             {ActiveComponent && <ActiveComponent />}
           </div>
-        </div>
-      </div>
-      </div>
+        </section>
+      </main>
     </div>
   )
 }

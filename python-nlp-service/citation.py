@@ -5,6 +5,7 @@ Handles citation formatting for various academic styles (APA, MLA, Chicago, Harv
 
 import re
 import logging
+import os
 from datetime import datetime
 from typing import List, Dict, Tuple, Optional
 from file_extractor import FileExtractor
@@ -30,7 +31,7 @@ class CitationManager:
         self.citation_to_reference_map = {}
         self.file_extractor = FileExtractor()
         
-    def detect_citation_style(self, text: str) -> str:
+    def _legacy_detect_citation_style(self, text: str) -> str:
         """
         Detect the citation style used in the document
         
@@ -41,11 +42,11 @@ class CitationManager:
             Detected citation style (APA, MLA, Chicago, Harvard, or Unknown)
         """
         # APA patterns: (Author, Year) or Author (Year)
-        apa_pattern = r'\([A-Z][a-z]+(?:\s+&\s+[A-Z][a-z]+)?,?\s+\d{4}[a-z]?\)'
+        apa_pattern = r'\([^\d()]+?(?:,\s+)?\d{4}[a-z]?\)'
         apa_matches = len(re.findall(apa_pattern, text))
 
         # MLA patterns: (Author Page) or (Author)
-        mla_pattern = r'\([A-Z][a-z]+(?:\s+\d+)?\)'
+        mla_pattern = r'\([^\d()]+?(?:\s+\d+)?\)'
         mla_matches = len(re.findall(mla_pattern, text))
 
         # Chicago pattern: Footnote/endnote superscript numbers
@@ -53,11 +54,11 @@ class CitationManager:
         chicago_matches = len(re.findall(chicago_pattern, text))
 
         # Harvard pattern: Similar to APA but no comma before year
-        harvard_pattern = r'\([A-Z][a-z]+(?:,\s+[A-Z]\.[A-Z]\.?)?\s+\d{4}\)'
+        harvard_pattern = r'\([^\d()]+?\s+\d{4}\)'
         harvard_matches = len(re.findall(harvard_pattern, text))
 
-        # IEEE pattern: [1], [2], [3], [1, 2], [1]-[3]
-        ieee_pattern = r'\[\d+(?:[,\s]+\d+)*\]'
+        # IEEE pattern: [1], [2], [3], [1, 2], [1]-[3], [ 1 ], [1] [2]
+        ieee_pattern = r'\[\s*\d+(?:[\s,–\-]+\d+)*\s*\](?:\s*\[\s*\d+(?:[\s,–\-]+\d+)*\s*\])*'
         ieee_matches = len(re.findall(ieee_pattern, text))
 
         # Determine most likely style
@@ -82,7 +83,7 @@ class CitationManager:
 
         return max(scores, key=scores.get)
     
-    def extract_citations_from_text(self, text: str) -> List[Dict]:
+    def _legacy_extract_citations_from_text(self, text: str) -> List[Dict]:
         """
         Extract all citations from the text with line numbers
         
@@ -97,9 +98,9 @@ class CitationManager:
         
         # Extract different citation patterns
         patterns = [
-            (r'\(([A-Z][a-z]+(?:\s+(?:&|and)\s+[A-Z][a-z]+)?),?\s+(\d{4}[a-z]?)\)', 'APA/Harvard'),  # APA/Harvard
-            (r'\(([A-Z][a-z]+)(?:\s+(\d+))?\)', 'MLA'),                                              # MLA
-            (r'\[(\d+(?:[,\s]+\d+)*)\]', 'IEEE'),                                                    # IEEE [1], [1, 2]
+            (r'\(([^()0-9]+?)(?:,\s+)?(\d{4}[a-z]?)\)', 'APA/Harvard'),  # APA/Harvard
+            (r'\(([^()0-9]+?)(?:\s+(\d+))?\)', 'MLA'),                                              # MLA
+            (r'\[\s*(\d+(?:[\s,–\-]+\d+)*)\s*\](?:\s*\[\s*\d+(?:[\s,–\-]+\d+)*\s*\])*', 'IEEE'),     # IEEE [1], [1, 2], [ 1 ], [1]-[3]
             (r'\^(\d+)', 'Chicago'),                                                                   # Chicago superscript
         ]
         
@@ -127,6 +128,89 @@ class CitationManager:
         self.detected_citations = citations
         return citations
     
+    def detect_citation_style(self, text: str) -> str:
+        """
+        Detect the citation style used in the document.
+
+        Only body text is scored. Reference-list markers such as "[1]" should
+        not make an APA paper look like IEEE.
+        """
+        reference_start = find_references_start_offset(text)
+        body_text = text[:reference_start] if reference_start is not None else text
+
+        scores = {
+            'APA': len(re.findall(r'\([^\d()]+?,\s*\d{4}[a-z]?\)', body_text)),
+            'Harvard': len(re.findall(r'\([^\d()]+?\s+\d{4}[a-z]?\)', body_text)),
+            'MLA': len(re.findall(r'\([A-Z][A-Za-z\'.-]+(?:\s+(?!\d{4}\b)\d{1,4})\)', body_text)),
+            'Chicago': len(re.findall(r'\^\d+', body_text)),
+            'IEEE': len(re.findall(r'\[\s*\d+(?:[\s,\-]+\d+)*\s*\](?:\s*\[\s*\d+(?:[\s,\-]+\d+)*\s*\])*', body_text)),
+        }
+
+        if scores['IEEE'] > 0 and scores['Chicago'] == 0 and scores['APA'] == 0 and scores['Harvard'] == 0:
+            scores['IEEE'] *= 1.5
+
+        max_score = max(scores.values())
+        if max_score == 0:
+            return 'Unknown'
+
+        return max(scores, key=scores.get)
+
+    def extract_citations_from_text(self, text: str) -> List[Dict]:
+        """
+        Extract in-text citations with line numbers.
+
+        The scan stops before the references/bibliography section and resolves
+        overlapping regex matches so a citation is emitted once.
+        """
+        citations = []
+        reference_start = find_references_start_offset(text)
+        scan_text = text[:reference_start] if reference_start is not None else text
+        accepted_ranges = []
+        lines = text.split('\n')
+
+        patterns = [
+            (r'\(([^()0-9]+?),\s*(\d{4}[a-z]?)\)', 'APA'),
+            (r'\(([^()0-9]+?)\s+(\d{4}[a-z]?)\)', 'Harvard'),
+            (r'\(([A-Z][A-Za-z\'.-]+)(?:\s+((?!\d{4}\b)\d{1,4}))\)', 'MLA'),
+            (r'\[\s*(\d+(?:[\s,\-]+\d+)*)\s*\](?:\s*\[\s*\d+(?:[\s,\-]+\d+)*\s*\])*', 'IEEE'),
+            (r'\^(\d+)', 'Chicago'),
+        ]
+
+        current_position = 0
+        for line_num, line in enumerate(lines, 1):
+            if reference_start is not None and current_position >= reference_start:
+                break
+
+            for pattern, style_type in patterns:
+                for match in re.finditer(pattern, line):
+                    start = current_position + match.start()
+                    end = current_position + match.end()
+                    if end > len(scan_text):
+                        continue
+                    if any(start < accepted_end and end > accepted_start for accepted_start, accepted_end in accepted_ranges):
+                        continue
+
+                    citation_text = match.group(0)
+                    author = (match.group(1) if len(match.groups()) > 0 else '').strip()
+                    year_or_page = (match.group(2) if len(match.groups()) > 1 and match.group(2) else '').strip()
+
+                    citations.append({
+                        'text': citation_text,
+                        'line': line_num,
+                        'position': start,
+                        'column': match.start(),
+                        'author': author,
+                        'year_or_page': year_or_page,
+                        'style_type': style_type,
+                        'context': line.strip()
+                    })
+                    accepted_ranges.append((start, end))
+
+            current_position += len(line) + 1
+
+        self.detected_citations = citations
+        return citations
+
     def format_citation_apa(self, author: str, year: str, title: str = "", 
                            source: str = "", url: str = "", 
                            doi: str = "", access_date: str = "") -> str:
@@ -431,6 +515,34 @@ def parse_citation_string(citation_str: str) -> Dict:
     return result
 
 
+def find_references_start_offset(text: str) -> Optional[int]:
+    """Return the character offset where the reference section begins."""
+    ref_header = re.compile(
+        r'^\s*(?:[IVXLC]+\.\s+)?'
+        r'(references?|bibliography|works\s+cited|reference\s+list|sources)'
+        r'\s*$',
+        re.IGNORECASE,
+    )
+    inline_header = re.compile(
+        r'(?:^|\b)(?:[IVXLC]+\.\s+)?'
+        r'(references?|bibliography|works\s+cited|reference\s+list|sources)'
+        r'\s*(?:\[1\]|$)',
+        re.IGNORECASE,
+    )
+
+    offset = 0
+    for line in text.splitlines(keepends=True):
+        stripped = line.strip()
+        if ref_header.match(stripped):
+            return offset
+        inline_match = inline_header.search(stripped)
+        if inline_match and ('[1]' in stripped or inline_match.start() <= 5):
+            return offset + inline_match.start()
+        offset += len(line)
+
+    return None
+
+
 def extract_references_section(text: str) -> Tuple[List[Dict], int]:
     """
     Extract the references/bibliography section from the document.
@@ -691,6 +803,8 @@ def match_citations_to_references(citations: List[Dict], references: List[Dict])
     # ── Pass 2: AI semantic fallback for unmatched citations ─────────────────
     unmatched = [i for i in range(len(citations)) if i not in mapping]
     if unmatched and references:
+        if os.getenv('ENABLE_AI_CITATION_MATCHING', 'false').lower() not in {'1', 'true', 'yes'}:
+            return mapping
         try:
             matcher = AISemanticCitationMatcher()
             matcher.fit(references)
@@ -749,12 +863,17 @@ class AISemanticCitationMatcher:
             return
         try:
             from sentence_transformers import SentenceTransformer
-            self._model = SentenceTransformer(self.MODEL_NAME)
+            self._model = SentenceTransformer(self.MODEL_NAME, local_files_only=True)
             logger.info("AISemanticCitationMatcher: loaded %s", self.MODEL_NAME)
         except ImportError as exc:
             raise RuntimeError(
                 "sentence-transformers is required for AI citation matching. "
                 "Run: pip install sentence-transformers"
+            ) from exc
+        except Exception as exc:
+            raise RuntimeError(
+                "AI citation matching model is not available locally. "
+                "Regex citation matching will continue without semantic fallback."
             ) from exc
 
     # ── Public API ───────────────────────────────────────────────────────────

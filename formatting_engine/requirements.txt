@@ -1,0 +1,8 @@
+pymupdf
+pdfplumber
+docling
+groq
+anthropic
+python-dotenv
+nougat-ocr
+albumentations<2

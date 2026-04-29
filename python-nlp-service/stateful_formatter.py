@@ -32,8 +32,11 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 # Constants
 # ---------------------------------------------------------------------------
-CHUNK_TARGET_WORDS  = 1000
+CHUNK_TARGET_WORDS  = max(500, int(os.getenv('STATEFUL_CHUNK_TARGET_WORDS', '2000')))
 CHUNK_OVERLAP_WORDS = 200   # kept for metadata; overlap NOT duplicated in output
+CHECKPOINT_INTERVAL = max(1, int(os.getenv('STATEFUL_CHECKPOINT_INTERVAL', '5')))
+WRITE_LEGACY_SNIPPETS = os.getenv('STATEFUL_WRITE_LEGACY_SNIPPETS', 'false').lower() == 'true'
+SNIPPETS_STORE_FILE = 'snippets.jsonl'
 
 # Heading style → LaTeX section command
 _HEADING_CMD: Dict[str, str] = {
@@ -234,11 +237,13 @@ def _build_paragraph_latex(
 class StatefulDocumentFormatter:
     """
     Stateful formatter for documents of 100+ pages.
-    Yields progress events; saves state.json after every chunk (resumable).
+    Yields progress events; checkpoints state periodically for resumability.
     """
 
     CHUNK_TARGET_WORDS  = CHUNK_TARGET_WORDS
     CHUNK_OVERLAP_WORDS = CHUNK_OVERLAP_WORDS
+    CHECKPOINT_INTERVAL = CHECKPOINT_INTERVAL
+    WRITE_LEGACY_SNIPPETS = WRITE_LEGACY_SNIPPETS
 
     def __init__(self, job_dir: str):
         self.job_dir   = job_dir
@@ -299,6 +304,7 @@ class StatefulDocumentFormatter:
                 resume=resume
             )
             start_at = state['completed_chunks']
+            snippets_by_chunk = self._load_snippets_store()
 
             bib_keys_set: Set[str] = set(bib_keys_map.values())
             total_repairs = state.get('total_repairs', 0)
@@ -320,17 +326,27 @@ class StatefulDocumentFormatter:
                 repairs_this = len(report['repairs_applied'])
                 total_repairs += repairs_this
 
-                # Save snippet file
-                snippet_path = os.path.join(
-                    self.job_dir, f'snippet_{i:04d}.tex'
-                )
-                with open(snippet_path, 'w', encoding='utf-8') as f:
-                    f.write(snippet)
+                snippets_by_chunk[i] = snippet
+                self._append_snippet_store(i, snippet)
+
+                # Optional legacy snippet files for backward compatibility/debugging.
+                if self.WRITE_LEGACY_SNIPPETS:
+                    snippet_path = os.path.join(
+                        self.job_dir, f'snippet_{i:04d}.tex'
+                    )
+                    with open(snippet_path, 'w', encoding='utf-8') as f:
+                        f.write(snippet)
 
                 # 4.3: update state
                 state['completed_chunks'] = i + 1
                 state['total_repairs']    = total_repairs
-                self._save_state(state)
+
+                should_checkpoint = (
+                    state['completed_chunks'] % self.CHECKPOINT_INTERVAL == 0 or
+                    state['completed_chunks'] == total
+                )
+                if should_checkpoint:
+                    self._save_state(state)
 
                 yield {
                     'type':    'progress',
@@ -345,8 +361,16 @@ class StatefulDocumentFormatter:
             yield {'type': 'stage', 'stage': 6,
                    'description': 'Assembling final document…'}
 
+            self._save_state(state)
+
             latex = self._assemble(
-                total, title, authors, style, bib_content, bib_entry_count
+                total,
+                title,
+                authors,
+                style,
+                bib_content,
+                bib_entry_count,
+                snippets_by_chunk,
             )
 
             # Save paper.tex
@@ -686,8 +710,9 @@ class StatefulDocumentFormatter:
         style:        str,
         bib_content:  str,
         bib_entry_count: int,
+        snippets_by_chunk: Dict[int, str],
     ) -> str:
-        """Read all snippet files and assemble the full .tex document."""
+        """Assemble the full .tex document from snippet store (with legacy fallback)."""
         preamble   = _PREAMBLE.get(style, _PREAMBLE['APA'])
         author_str = ' \\and '.join(_escape(a) for a in authors) \
                      if authors else 'Author'
@@ -706,11 +731,17 @@ class StatefulDocumentFormatter:
         ]
 
         for i in range(total_chunks):
-            path = os.path.join(self.job_dir, f'snippet_{i:04d}.tex')
-            if os.path.exists(path):
-                with open(path, 'r', encoding='utf-8') as f:
-                    parts.append(f.read())
-                    parts.append('')
+            snippet = snippets_by_chunk.get(i)
+            if snippet is None:
+                # Legacy fallback for older checkpoints that wrote snippet files.
+                path = os.path.join(self.job_dir, f'snippet_{i:04d}.tex')
+                if os.path.exists(path):
+                    with open(path, 'r', encoding='utf-8') as f:
+                        snippet = f.read()
+
+            if snippet:
+                parts.append(snippet)
+                parts.append('')
 
         # Bibliography
         parts.append('')
@@ -765,6 +796,8 @@ class StatefulDocumentFormatter:
             except Exception as e:
                 logger.warning('[StatefulFormatter] Could not read state: %s', e)
 
+        self._reset_snippet_artifacts()
+
         state = {
             'style':             style,
             'title':             title,
@@ -790,3 +823,59 @@ class StatefulDocumentFormatter:
                 json.dump(state, f, indent=2, default=str)
         except Exception as e:
             logger.warning('[StatefulFormatter] State save failed: %s', e)
+
+    def _snippets_store_path(self) -> str:
+        return os.path.join(self.job_dir, SNIPPETS_STORE_FILE)
+
+    def _reset_snippet_artifacts(self) -> None:
+        store_path = self._snippets_store_path()
+        if os.path.exists(store_path):
+            try:
+                os.remove(store_path)
+            except Exception as e:
+                logger.warning('[StatefulFormatter] Could not remove snippet store: %s', e)
+
+        for name in os.listdir(self.job_dir):
+            if not name.startswith('snippet_') or not name.endswith('.tex'):
+                continue
+            try:
+                os.remove(os.path.join(self.job_dir, name))
+            except Exception as e:
+                logger.warning('[StatefulFormatter] Could not remove legacy snippet file %s: %s', name, e)
+
+    def _load_snippets_store(self) -> Dict[int, str]:
+        snippets: Dict[int, str] = {}
+        store_path = self._snippets_store_path()
+
+        if not os.path.exists(store_path):
+            return snippets
+
+        try:
+            with open(store_path, 'r', encoding='utf-8') as f:
+                for line in f:
+                    line = line.strip()
+                    if not line:
+                        continue
+                    record = json.loads(line)
+                    chunk_idx = int(record.get('chunk', -1))
+                    snippet = record.get('snippet', '')
+                    if chunk_idx >= 0 and snippet:
+                        snippets[chunk_idx] = snippet
+        except Exception as e:
+            logger.warning('[StatefulFormatter] Could not load snippet store: %s', e)
+
+        return snippets
+
+    def _append_snippet_store(self, chunk_idx: int, snippet: str) -> None:
+        store_path = self._snippets_store_path()
+        record = {
+            'chunk': chunk_idx,
+            'snippet': snippet,
+        }
+
+        try:
+            with open(store_path, 'a', encoding='utf-8') as f:
+                f.write(json.dumps(record, ensure_ascii=False))
+                f.write('\n')
+        except Exception as e:
+            logger.warning('[StatefulFormatter] Could not append snippet store: %s', e)

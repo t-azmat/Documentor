@@ -1,0 +1,66 @@
+services:
+  - type: web
+    name: documentor-backend
+    runtime: node
+    rootDir: backend
+    plan: free
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: BODY_PARSER_LIMIT
+        value: 25mb
+      - key: MONGODB_URI
+        sync: false
+      - key: JWT_SECRET
+        generateValue: true
+      - key: JWT_EXPIRE
+        value: 7d
+      - key: FRONTEND_URL
+        sync: false
+      - key: FRONTEND_URLS
+        sync: false
+      - key: PYTHON_NLP_URL
+        sync: false
+      - key: PYTHON_GRAMMAR_SERVICE_URL
+        sync: false
+      - key: ADMIN_BOOTSTRAP_ENABLED
+        value: true
+      - key: ADMIN_NAME
+        value: System Administrator
+      - key: ADMIN_EMAIL
+        sync: false
+      - key: ADMIN_PASSWORD
+        sync: false
+      - key: ADMIN_STATUS
+        value: active
+      - key: ADMIN_RESET_PASSWORD_ON_START
+        value: false
+      - key: STRIPE_SECRET_KEY
+        sync: false
+      - key: STRIPE_WEBHOOK_SECRET
+        sync: false
+      - key: GROQ_API_KEY
+        sync: false
+
+  - type: web
+    name: documentor-nlp
+    runtime: python
+    rootDir: python-nlp-service
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn app:app --bind 0.0.0.0:$PORT --timeout 240 --workers 1
+    healthCheckPath: /health
+    envVars:
+      - key: ENABLE_AI_CITATION_MATCHING
+        value: false
+      - key: FORMATTING_ENGINE_LOCAL_ONLY
+        value: true
+      - key: FORMATTING_ENGINE_USE_AI
+        value: false
+      - key: GRAMMAR_MODEL_PATH
+        sync: false
+      - key: GROQ_API_KEY
+        sync: false

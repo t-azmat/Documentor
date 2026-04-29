@@ -1,140 +1,259 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useNavigate, useLocation, Link } from 'react-router-dom'
-import { FaFileAlt, FaQuoteRight, FaSearch, FaBars, FaTimes, FaSignOutAlt, FaMagic, FaRobot, FaAlignLeft, FaFilePdf, FaFileWord, FaCode } from 'react-icons/fa'
+import {
+  FaAlignLeft,
+  FaBars,
+  FaBell,
+  FaBook,
+  FaCode,
+  FaCrown,
+  FaFileAlt,
+  FaFilePdf,
+  FaFileWord,
+  FaFolder,
+  FaMagic,
+  FaQuoteRight,
+  FaRobot,
+  FaSearch,
+  FaSignOutAlt,
+  FaMoon,
+  FaSun,
+  FaTimes,
+  FaUpload,
+} from 'react-icons/fa'
+import { MdDashboard } from 'react-icons/md'
+import useAuthStore from '../../store/authStore'
+import useTheme from '../../hooks/useTheme'
+
+const menuItems = [
+  { icon: MdDashboard, label: 'Dashboard', path: '/dashboard' },
+  { icon: FaFileAlt, label: 'Documents', path: '/documents' },
+  { icon: FaFolder, label: 'Projects', path: '/projects' },
+  { icon: FaBook, label: 'Templates', path: '/templates' },
+  { icon: FaMagic, label: 'Grammar Enhancer', path: '/grammar-enhancer' },
+  { icon: FaAlignLeft, label: 'Formatting', path: '/formatting', formats: true },
+  { icon: FaQuoteRight, label: 'Citations', path: '/citations' },
+  { icon: FaSearch, label: 'Plagiarism', path: '/plagiarism' },
+  { icon: FaRobot, label: 'AI Detector', path: '/ai-detector' },
+]
+
+const titles = {
+  '/dashboard': 'Dashboard',
+  '/documents': 'Documents',
+  '/projects': 'Projects',
+  '/templates': 'Templates',
+  '/grammar-enhancer': 'Grammar Enhancer',
+  '/formatting': 'Document Formatting',
+  '/citations': 'Citation Manager',
+  '/plagiarism': 'Plagiarism Check',
+  '/ai-detector': 'AI Content Detector',
+}
 
 const Layout = ({ children }) => {
   const navigate = useNavigate()
   const location = useLocation()
-  const [sidebarOpen, setSidebarOpen] = useState(true)
+  const { user, subscription, logout } = useAuthStore()
+  const { theme, isDark, toggleTheme } = useTheme()
+  const [sidebarOpen, setSidebarOpen] = useState(false)
+  const [searchQuery, setSearchQuery] = useState('')
 
-  const menuItems = [
-    { icon: FaFileAlt, label: 'Documents', path: '/documents' },
-    { icon: FaMagic, label: 'Grammar Enhancer', path: '/grammar-enhancer' },
-    { icon: FaAlignLeft, label: 'Formatting', path: '/formatting' },
-    { icon: FaQuoteRight, label: 'Citations', path: '/citations' },
-    { icon: FaSearch, label: 'Plagiarism', path: '/plagiarism' },
-    { icon: FaRobot, label: 'AI Detector', path: '/ai-detector' },
-  ]
+  const pageTitle = titles[location.pathname] || 'DocuMentor'
+  const initials = useMemo(() => {
+    const source = user?.name || user?.fullName || user?.email || 'DM'
+    return source
+      .split(/[ @._-]+/)
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((part) => part[0]?.toUpperCase())
+      .join('') || 'DM'
+  }, [user])
+
+  const planName = subscription?.plan || user?.subscription?.plan || 'Free'
+  const used = subscription?.usage?.documentsThisMonth || user?.usage?.documentsThisMonth || 0
+  const limit = subscription?.limits?.documentsPerMonth || user?.limits?.documentsPerMonth || 5
+  const percent = Math.min(100, Math.round((used / Math.max(limit, 1)) * 100))
 
   const handleLogout = () => {
-    localStorage.removeItem('token')
-    localStorage.removeItem('user')
+    logout()
     navigate('/login')
   }
 
   const isActive = (path) => location.pathname === path
 
+  const handleSearchSubmit = (event) => {
+    event.preventDefault()
+    if (searchQuery.trim()) navigate('/documents')
+  }
+
   return (
-    <div className="flex h-screen overflow-hidden bg-gray-50">
-      {/* Sidebar */}
+    <div className="documentor-shell flex h-screen overflow-hidden" data-theme={theme}>
       <aside
-        className={`fixed inset-y-0 left-0 z-50 w-64 bg-gradient-to-b from-blue-600 to-blue-700 shadow-xl transform transition-transform duration-300 ease-in-out ${
+        className={`fixed inset-y-0 left-0 z-50 flex w-64 flex-col overflow-hidden border-r border-white/10 bg-[#11141b] shadow-2xl transition-transform duration-300 ease-in-out ${
           sidebarOpen ? 'translate-x-0' : '-translate-x-full'
         } lg:translate-x-0`}
       >
-        {/* Logo */}
-        <div className="flex items-center justify-between px-6 py-6 border-b border-blue-500">
-          <Link to="/dashboard" className="flex items-center gap-3 hover:opacity-80 transition-opacity">
-            <div className="w-10 h-10 bg-white rounded-lg flex items-center justify-center">
-              <FaFileAlt className="text-blue-600 text-xl" />
+        <div className="pointer-events-none absolute -left-24 -top-24 h-72 w-72 rounded-full bg-amber-400/10 blur-3xl" />
+
+        <div className="relative flex items-center justify-between border-b border-white/10 px-5 py-5">
+          <Link to="/dashboard" className="flex min-w-0 items-center gap-3 transition-opacity hover:opacity-90">
+            <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg bg-[#e8c547] text-sm font-black text-[#0c0e13] shadow-[0_0_26px_rgba(232,197,71,0.22)]">
+              D
             </div>
-            <h1 className="text-white text-xl font-bold">DocuMentor</h1>
+            <div className="min-w-0">
+              <h1 className="truncate text-lg font-black tracking-normal text-white">
+                Docu<span className="text-[#e8c547]">Mentor</span>
+              </h1>
+              <p className="truncate text-[11px] font-medium text-slate-400">Academic document suite</p>
+            </div>
           </Link>
           <button
             onClick={() => setSidebarOpen(false)}
-            className="lg:hidden text-white hover:bg-blue-700 p-2 rounded-lg"
+            className="rounded-lg p-2 text-slate-300 transition-colors hover:bg-white/10 hover:text-white lg:hidden"
+            aria-label="Close navigation"
           >
             <FaTimes />
           </button>
         </div>
 
-        {/* Tools Label */}
-        <div className="px-6 py-4">
-          <span className="text-blue-200 text-xs font-semibold uppercase tracking-wider">
-            Tools
-          </span>
+        <div className="px-5 pb-2 pt-5 text-[10px] font-bold uppercase tracking-[0.22em] text-slate-500">
+          Workspace
         </div>
 
-        {/* Navigation */}
-        <nav className="px-3 space-y-1">
-          {menuItems.map((item) => (
-            <button
-              key={item.path}
-              onClick={() => navigate(item.path)}
-              className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all duration-200 ${
-                isActive(item.path)
-                  ? 'bg-blue-700 text-white shadow-lg'
-                  : 'text-blue-100 hover:bg-blue-700 hover:text-white'
-              }`}
-            >
-              <item.icon className="text-lg flex-shrink-0" />
-              <div className="flex-1 text-left">
-                <div className="flex items-center gap-2">
-                  <span className="font-medium">{item.label}</span>
-                  {item.badge && (
-                    <span className="text-xs bg-yellow-400 text-yellow-900 px-1.5 py-0.5 rounded font-bold leading-none">
-                      {item.badge}
-                    </span>
-                  )}
-                </div>
-                {item.path === '/formatting' && (
-                  <span className="flex items-center gap-1.5 mt-0.5">
-                    <FaFilePdf className="text-red-300 text-xs" />
-                    <span className="text-blue-200 text-xs">PDF</span>
-                    <FaFileWord className="text-blue-300 text-xs" />
-                    <span className="text-blue-200 text-xs">DOCX</span>
-                    <FaCode className="text-green-300 text-xs" />
-                    <span className="text-blue-200 text-xs">LaTeX</span>
+        <nav className="relative flex-1 space-y-1 overflow-y-auto px-3 pb-4">
+          {menuItems.map((item) => {
+            const Icon = item.icon
+            return (
+              <button
+                key={item.path}
+                onClick={() => {
+                  navigate(item.path)
+                  setSidebarOpen(false)
+                }}
+                className={`group relative flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm transition-all duration-200 ${
+                  isActive(item.path)
+                    ? 'bg-[#e8c547]/10 text-[#e8c547] shadow-[inset_3px_0_0_#e8c547]'
+                    : 'text-slate-400 hover:bg-white/10 hover:text-white'
+                }`}
+              >
+                <Icon className="h-4 w-4 flex-shrink-0" />
+                <span className="min-w-0 flex-1 truncate font-medium">{item.label}</span>
+                {item.formats && (
+                  <span className="hidden items-center gap-1 sm:flex">
+                    <FaFilePdf className="text-[11px] text-rose-400" />
+                    <FaFileWord className="text-[11px] text-sky-400" />
+                    <FaCode className="text-[11px] text-emerald-400" />
                   </span>
                 )}
-
-              </div>
-            </button>
-          ))}
+              </button>
+            )
+          })}
         </nav>
 
-        {/* Logout */}
-        <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-blue-500">
+        <div className="relative border-t border-white/10 p-4">
+          <div className="rounded-lg border border-[#e8c547]/20 bg-[#e8c547]/10 p-3">
+            <div className="mb-1 flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-[#e8c547]">
+              <FaCrown />
+              {planName} Plan
+            </div>
+            <p className="mb-3 text-xs text-slate-400">
+              {Math.max(limit - used, 0)} documents remaining
+            </p>
+            <div className="h-1.5 overflow-hidden rounded-full bg-white/10">
+              <div
+                className="h-full rounded-full bg-[#e8c547] transition-all duration-500"
+                style={{ width: `${percent}%` }}
+              />
+            </div>
+            <button
+              onClick={() => navigate('/pricing')}
+              className="mt-3 flex w-full items-center justify-center gap-2 rounded-md bg-[#e8c547] px-3 py-2 text-xs font-black text-[#0c0e13] transition hover:opacity-90"
+            >
+              Upgrade
+            </button>
+          </div>
+
           <button
             onClick={handleLogout}
-            className="w-full flex items-center gap-3 px-4 py-3 text-blue-100 hover:bg-blue-700 hover:text-white rounded-lg transition-all duration-200"
+            className="mt-3 flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-slate-400 transition-colors hover:bg-white/10 hover:text-white"
           >
-            <FaSignOutAlt className="text-lg" />
-            <span className="font-medium">Logout</span>
+            <FaSignOutAlt className="h-4 w-4" />
+            Logout
           </button>
         </div>
       </aside>
 
-      {/* Main Content */}
-      <div className="flex-1 flex flex-col overflow-hidden lg:ml-64">
-        {/* Mobile Header */}
-        <header className="lg:hidden bg-white border-b border-gray-200 px-4 py-3 flex items-center justify-between shadow-sm">
+      <div className="flex min-w-0 flex-1 flex-col overflow-hidden lg:ml-64">
+        <header className="flex h-16 min-h-16 items-center gap-3 border-b border-white/10 bg-[#11141b] px-4 shadow-sm sm:px-6">
           <button
             onClick={() => setSidebarOpen(true)}
-            className="text-gray-600 hover:text-gray-900 p-2"
+            className="rounded-lg border border-white/10 bg-white/5 p-2 text-slate-200 transition hover:bg-white/10 lg:hidden"
+            aria-label="Open navigation"
           >
-            <FaBars className="text-xl" />
+            <FaBars />
           </button>
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
-              <FaFileAlt className="text-white text-sm" />
-            </div>
-            <span className="text-gray-900 font-bold">DocuMentor</span>
+
+          <div className="min-w-0 flex-1">
+            <h2 className="truncate text-lg font-black text-white sm:text-xl">
+              {pageTitle.split(' ')[0]}
+              {pageTitle.includes(' ') && (
+                <span className="text-[#e8c547]"> {pageTitle.split(' ').slice(1).join(' ')}</span>
+              )}
+            </h2>
           </div>
-          <div className="w-10" /> {/* Spacer */}
+
+          <form
+            onSubmit={handleSearchSubmit}
+            className="hidden w-64 items-center gap-2 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-slate-300 md:flex"
+          >
+            <FaSearch className="h-3.5 w-3.5 text-slate-500" />
+            <input
+              value={searchQuery}
+              onChange={(event) => setSearchQuery(event.target.value)}
+              placeholder="Search documents..."
+              className="w-full bg-transparent text-sm text-slate-100 outline-none placeholder:text-slate-500"
+            />
+          </form>
+
+          <button
+            className="relative hidden h-9 w-9 items-center justify-center rounded-lg border border-white/10 bg-white/5 text-slate-300 transition hover:bg-white/10 hover:text-white sm:flex"
+            aria-label="Notifications"
+          >
+            <FaBell className="h-4 w-4" />
+            <span className="absolute right-2 top-2 h-2 w-2 rounded-full bg-[#e8c547]" />
+          </button>
+
+          <button
+            onClick={toggleTheme}
+            className="flex h-9 w-9 items-center justify-center rounded-lg border border-white/10 bg-white/5 text-slate-300 transition hover:bg-white/10 hover:text-white"
+            aria-label={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
+            title={isDark ? 'Light mode' : 'Dark mode'}
+          >
+            {isDark ? <FaSun className="h-4 w-4" /> : <FaMoon className="h-4 w-4" />}
+          </button>
+
+          <button
+            onClick={() => navigate('/documents')}
+            className="hidden h-9 w-9 items-center justify-center rounded-lg border border-white/10 bg-white/5 text-slate-300 transition hover:bg-white/10 hover:text-white sm:flex"
+            aria-label="Upload"
+          >
+            <FaUpload className="h-4 w-4" />
+          </button>
+
+          <div className="flex h-9 w-9 items-center justify-center rounded-full border-2 border-[#e8c547]/30 bg-[#e8c547] text-xs font-black text-[#0c0e13]">
+            {initials}
+          </div>
         </header>
 
-        {/* Page Content */}
-        <main className="flex-1 overflow-x-hidden overflow-y-auto">
+        <main className="flex-1 overflow-x-hidden overflow-y-auto bg-[#0c0e13]">
           {children}
         </main>
       </div>
 
-      {/* Mobile Overlay */}
       {sidebarOpen && (
-        <div
-          className="fixed inset-0 bg-black bg-opacity-50 z-40 lg:hidden"
+        <button
+          className="fixed inset-0 z-40 bg-black/60 lg:hidden"
           onClick={() => setSidebarOpen(false)}
+          aria-label="Close navigation overlay"
         />
       )}
     </div>

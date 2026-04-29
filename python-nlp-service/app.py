@@ -8,7 +8,7 @@ Implements all 4 algorithms from Chapter 4:
 4. Section Detection (Naive Bayes)
 """
 
-from flask import Flask, request, jsonify, Response, stream_with_context
+from flask import Flask, request, jsonify, Response, stream_with_context, send_file
 from flask_cors import CORS
 import os
 import re
@@ -16,12 +16,19 @@ import uuid
 import json
 import logging
 import time
+import importlib.util
+import sys
+from pathlib import Path
 from grammar_enhancer import GrammarEnhancer
 from plagiarism_detector import SemanticPlagiarismDetector, OnlinePlagiarismChecker
 from formatting_engine import DocumentFormattingEngine
 from section_detector import DocumentSectionDetector
 from citation import CitationManager, extract_references_section, match_citations_to_references, AISemanticCitationMatcher
 from file_extractor import FileExtractor
+from pdf_extractor import extract_pdf_complete
+from docx_extractor import extract_docx_complete
+import tempfile
+import os
 
 # PlagiarismStudio dependencies (lazy-loaded)
 _studio_cosine_ready = False
@@ -258,6 +265,8 @@ file_extractor = None
 
 UPLOAD_FOLDER = 'uploads'
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+NEW_ENGINE_RUNS = {}
+_new_format_document = None
 
 
 def get_grammar_enhancer():
@@ -332,6 +341,128 @@ def get_file_extractor():
     return file_extractor
 
 
+def get_new_format_document():
+    """Load the standalone formatting_engine package (repo root) without clashing with local formatting_engine.py."""
+    global _new_format_document
+    if _new_format_document is not None:
+        return _new_format_document
+
+    package_root = Path(__file__).resolve().parent.parent / 'formatting_engine'
+    init_path = package_root / '__init__.py'
+    if not init_path.exists():
+        raise RuntimeError(f"formatting_engine package not found at {init_path}")
+
+    module_name = 'documentor_new_formatting_engine'
+    spec = importlib.util.spec_from_file_location(
+        module_name,
+        init_path,
+        submodule_search_locations=[str(package_root)]
+    )
+    if spec is None or spec.loader is None:
+        raise RuntimeError('Failed to load formatting_engine module spec')
+
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[module_name] = module
+    spec.loader.exec_module(module)
+
+    formatter = getattr(module, 'format_document', None)
+    if not callable(formatter):
+        raise RuntimeError('formatting_engine.format_document is not available')
+
+    _new_format_document = formatter
+    return _new_format_document
+
+
+def get_guideline_rule_extractor():
+    """Load formatting_engine/guidelines.py without importing the local formatting_engine.py module."""
+    package_root = Path(__file__).resolve().parent.parent / 'formatting_engine'
+    guidelines_path = package_root / 'guidelines.py'
+    if not guidelines_path.exists():
+        raise RuntimeError(f"Guideline extractor not found at {guidelines_path}")
+
+    module_name = 'documentor_new_formatting_engine_guidelines'
+    existing = sys.modules.get(module_name)
+    if existing is not None and hasattr(existing, 'extract_guideline_rules'):
+        return existing.extract_guideline_rules
+
+    spec = importlib.util.spec_from_file_location(module_name, guidelines_path)
+    if spec is None or spec.loader is None:
+        raise RuntimeError('Failed to load guideline extractor module spec')
+
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[module_name] = module
+    spec.loader.exec_module(module)
+    extractor = getattr(module, 'extract_guideline_rules', None)
+    if not callable(extractor):
+        raise RuntimeError('extract_guideline_rules is not available')
+    return extractor
+
+
+def _read_json_file(path_value):
+    if not path_value:
+        return {}
+    try:
+        path = Path(path_value)
+        if not path.exists():
+            return {}
+        with path.open('r', encoding='utf-8') as handle:
+            return json.load(handle)
+    except Exception:
+        return {}
+
+
+def _build_new_engine_preview(result):
+    layout = _read_json_file(result.get('layout_plan_path'))
+    ir = _read_json_file(result.get('ir_path'))
+
+    section_previews = []
+    max_sections = int(os.getenv('FORMATTING_ENGINE_PREVIEW_MAX_SECTIONS', '80') or 80)
+    max_paragraphs_per_section = int(os.getenv('FORMATTING_ENGINE_PREVIEW_MAX_PARAGRAPHS_PER_SECTION', '80') or 80)
+    for section in (layout.get('sections') or [])[:max_sections]:
+        subsection_previews = []
+        section_paragraphs = []
+        for subsection in section.get('subsections') or []:
+            paragraphs = (subsection.get('paragraphs') or [])[:max_paragraphs_per_section]
+            section_paragraphs.extend(paragraphs)
+            subsection_previews.append({
+                'id': subsection.get('id'),
+                'title': subsection.get('title') or section.get('title') or 'Untitled Section',
+                'paragraphs': paragraphs,
+                'layout_source': subsection.get('layout_source') or section.get('layout_source') or 'unknown',
+            })
+        section_previews.append({
+            'id': section.get('id'),
+            'title': section.get('title') or 'Untitled Section',
+            'paragraphs': section_paragraphs[:max_paragraphs_per_section],
+            'subsections': subsection_previews,
+            'layout_source': section.get('layout_source') or 'unknown',
+        })
+
+    metadata = layout.get('metadata') or {}
+    return {
+        'title': metadata.get('title') or (ir.get('metadata') or {}).get('title'),
+        'authors': metadata.get('authors') or [],
+        'affiliation': metadata.get('affiliation') or '',
+        'abstract': metadata.get('abstract') or '',
+        'keywords': metadata.get('keywords') or [],
+        'style': layout.get('style') or result.get('target_style'),
+        'font': layout.get('font'),
+        'body_size_pt': layout.get('body_size_pt'),
+        'abstract_size_pt': layout.get('abstract_size_pt'),
+        'body_alignment': layout.get('body_alignment'),
+        'line_spacing': layout.get('line_spacing'),
+        'first_line_indent_inches': layout.get('first_line_indent_inches'),
+        'reference_hanging_indent_inches': layout.get('reference_hanging_indent_inches'),
+        'columns': layout.get('columns'),
+        'sections': section_previews,
+        'references': layout.get('references') or [],
+        'engine_report': layout.get('engine_report') or {},
+        'references_count': len(layout.get('references') or []),
+        'figures_count': len(ir.get('figures') or []),
+        'tables_count': len(ir.get('tables') or []),
+    }
+
+
 # ============================================================================
 # HEALTH CHECK ENDPOINT
 # ============================================================================
@@ -365,12 +496,14 @@ def health_check():
 @app.route('/api/extract/file', methods=['POST'])
 def extract_file():
     """
-    Centralized file text extraction endpoint
+    ✅ IMPROVED: Centralized file text extraction endpoint
+    Extracts text, structure, tables, and embedded media
+    
     Supports: PDF, DOCX, TXT, LaTeX
     Used across all services: Grammar, Plagiarism, Citations, Formatting
     
     Request: multipart/form-data with 'file' field
-    Response: Extracted text with metadata
+    Response: Extracted text + structure + media with metadata
     """
     try:
         logger.info("File extraction request received")
@@ -387,29 +520,224 @@ def extract_file():
         
         logger.info(f"Processing file: {file.filename}")
         
-        # Read file content
-        file_content = file.read()
+        # Get file extension
         filename = file.filename
+        file_ext = os.path.splitext(filename)[1].lower().lstrip('.')
         
-        logger.info(f"File size: {len(file_content)} bytes")
+        # ✅ Use specialized extractors for PDF and DOCX
+        extraction = None
+        try:
+            if file_ext == 'pdf':
+                # Save to temp file for PDF processing
+                with tempfile.NamedTemporaryFile(delete=False, suffix='.pdf') as tmp:
+                    file.save(tmp.name)
+                    extraction = extract_pdf_complete(tmp.name)
+                    os.unlink(tmp.name)
+                    
+            elif file_ext in ['docx', 'doc']:
+                # Save to temp file for DOCX processing
+                with tempfile.NamedTemporaryFile(delete=False, suffix='.docx') as tmp:
+                    file.save(tmp.name)
+                    extraction = extract_docx_complete(tmp.name)
+                    os.unlink(tmp.name)
+                    
+            elif file_ext == 'txt':
+                # Simple text file extraction
+                file_content = file.read().decode('utf-8', errors='replace')
+                extraction = {
+                    'text': file_content,
+                    'word_count': len(file_content.split()),
+                    'structure': [{'type': 'paragraph', 'content': file_content}],
+                    'media': []
+                }
+            else:
+                # Fallback to generic extractor for other formats
+                extractor = get_file_extractor()
+                if extractor is None:
+                    return jsonify({'success': False, 'error': 'File extractor not available'}), 500
+                
+                result = extractor.extract_text(file.read(), filename)
+                if not result['success']:
+                    return jsonify(result), 400
+                
+                extraction = {
+                    'text': result.get('text', ''),
+                    'word_count': result.get('word_count', 0),
+                    'structure': [],
+                    'media': []
+                }
         
-        # Extract text using centralized extractor
-        extractor = get_file_extractor()
-        if extractor is None:
-            logger.error("File extractor not initialized")
-            return jsonify({'success': False, 'error': 'File extraction service not available'}), 500
+        except Exception as extract_err:
+            logger.error(f"Specialized extraction failed: {str(extract_err)}")
+            logger.error(f"Traceback: {extract_err.__traceback__}")
+            # Fallback to generic extractor - but preserve any partial extraction
+            if extraction is None:
+                extractor = get_file_extractor()
+                if extractor:
+                    try:
+                        file.seek(0)  # Reset file pointer
+                        result = extractor.extract_text(file.read(), filename)
+                        if result['success']:
+                            extraction = {
+                                'text': result.get('text', ''),
+                                'word_count': result.get('word_count', 0),
+                                'structure': [],
+                                'media': []
+                            }
+                    except Exception as fallback_err:
+                        logger.error(f"Generic extraction also failed: {fallback_err}")
         
-        result = extractor.extract_text(file_content, filename)
+        if extraction is None:
+            return jsonify({'success': False, 'error': 'Could not extract file content'}), 400
         
-        if not result['success']:
-            logger.error(f"Extraction failed: {result.get('error', 'Unknown error')}")
-            return jsonify(result), 400
+        logger.info(f"Extraction successful - {extraction['word_count']} words, "
+                   f"{len(extraction.get('media', []))} media items")
         
-        logger.info(f"Extraction successful - {result['word_count']} words")
-        return jsonify(result), 200
+        # ✅ Return enhanced response with structure and media
+        return jsonify({
+            'success': True,
+            'text': extraction['text'],
+            'word_count': extraction['word_count'],
+            'structure': extraction.get('structure', []),
+            'media': extraction.get('media', []),
+            'metadata': {
+                'tables': len([e for e in extraction.get('structure', []) if e.get('type') == 'table']),
+                'images': len([m for m in extraction.get('media', []) if m.get('type') == 'image']),
+                'graphs': len([m for m in extraction.get('media', []) if m.get('type') == 'graph'])
+            }
+        }), 200
         
     except Exception as e:
         logger.error(f"File extraction failed: {str(e)}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+# ============================================================================
+# STRUCTURED FILE EXTRACTION ENDPOINT (with heading levels and document tree)
+# ============================================================================
+
+@app.route('/api/extract/structured', methods=['POST'])
+def extract_structured_file():
+    """
+    ✅ IMPROVED: Extract document with FULL STRUCTURE preservation
+    
+    Returns blocks with heading levels, document hierarchy, tables, media
+    Preserves: heading levels, paragraph styles, page numbers, headers/footers
+    Detects: table of contents, multi-column layouts, fonts/sizes
+    
+    Request: multipart/form-data with 'file' field
+    Response: Structured blocks with styles (Heading 1-5, Normal, Title)
+    """
+    try:
+        logger.info("Structured file extraction request received")
+        
+        # Validate file
+        if 'file' not in request.files:
+            logger.error("No file in request")
+            return jsonify({'success': False, 'error': 'No file provided'}), 400
+        
+        file = request.files['file']
+        if file.filename == '':
+            logger.error("Empty filename")
+            return jsonify({'success': False, 'error': 'No file selected'}), 400
+        
+        logger.info(f"Processing structured extraction: {file.filename}")
+        file_bytes = file.read()
+        
+        # Use FileExtractor's structured extraction method
+        extractor = get_file_extractor()
+        if extractor is None:
+            return jsonify({'success': False, 'error': 'File extractor not available'}), 500
+        
+        # Use structured extraction - preserves heading levels and styles
+        extraction_result = extractor.extract_structured(file_bytes, file.filename)
+        
+        if not extraction_result.get('success'):
+            logger.error(f"Structured extraction failed: {extraction_result.get('error')}")
+            return jsonify(extraction_result), 400
+        
+        blocks = extraction_result.get('blocks', [])
+        structure = extraction_result.get('structure', [])
+        media = extraction_result.get('media', [])
+        table_of_contents = extraction_result.get('table_of_contents', [])
+        docling_payload = extraction_result.get('docling')
+        logger.info(f"Structured extraction: {len(blocks)} blocks with heading information")
+        
+        # Process blocks to include hierarchy information
+        processed_blocks = []
+        current_h1_idx = -1
+        current_h2_idx = -1
+        
+        for idx, block in enumerate(blocks):
+            style = block.get('style', 'Normal')
+            text = block.get('text', '')
+            
+            block_info = {
+                'text': text,
+                'style': style,
+                'index': idx,
+                'word_count': len(text.split()),
+                'char_count': len(text)
+            }
+            
+            # Track heading hierarchy for table of contents generation
+            if style == 'Heading 1':
+                current_h1_idx = idx
+                current_h2_idx = -1
+                block_info['section_level'] = 1
+            elif style == 'Heading 2':
+                block_info['section_level'] = 2
+                block_info['parent_section'] = current_h1_idx
+            elif style == 'Heading 3':
+                block_info['section_level'] = 3
+                block_info['parent_section'] = current_h2_idx
+            else:
+                block_info['section_level'] = 0
+            
+            processed_blocks.append(block_info)
+        
+        # Build table of contents from heading blocks
+        toc = []
+        for block in processed_blocks:
+            if block.get('section_level', 0) >= 1:
+                toc.append({
+                    'level': block['section_level'],
+                    'text': block['text'][:100],  # First 100 chars
+                    'index': block['index']
+                })
+
+        if table_of_contents:
+            toc = table_of_contents
+        
+        logger.info(f"Generated table of contents with {len(toc)} entries")
+        
+        # ✅ Return structured response with heading information
+        return jsonify({
+            'success': True,
+            'blocks': processed_blocks,
+            'structure': structure,
+            'media': media,
+            'docling': docling_payload,
+            'word_count': extraction_result.get('word_count', 0),
+            'file_type': extraction_result.get('file_type', ''),
+            'table_of_contents': toc,
+            'total_blocks': len(blocks),
+            'heading_1_count': len([b for b in processed_blocks if b.get('section_level') == 1]),
+            'heading_2_count': len([b for b in processed_blocks if b.get('section_level') == 2]),
+            'heading_3_count': len([b for b in processed_blocks if b.get('section_level') == 3]),
+            'metadata': {
+                'extraction_method': 'structured',
+                'backend': extraction_result.get('backend', 'native'),
+                'preserves_headings': True,
+                'preserves_hierarchy': True,
+                'has_docling_payload': bool(docling_payload),
+                'structure_items': len(structure),
+                'media_items': len(media)
+            }
+        }), 200
+        
+    except Exception as e:
+        logger.error(f"Structured extraction error: {e}", exc_info=True)
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
@@ -448,7 +776,7 @@ def enhance_grammar():
         if enhancer is None or enhancer.pipeline is None:
             # Fallback to basic enhancements
             logger.warning("Model not available, using basic enhancement rules")
-            result = GrammarEnhancer().apply_basic_enhancements(text)
+            result = GrammarEnhancer.apply_basic_enhancements(text)
             return jsonify({
                 'success': True,
                 'data': result,
@@ -526,8 +854,7 @@ def basic_enhance_grammar():
         if not text:
             return jsonify({'error': 'No text provided'}), 400
         
-        enhancer = GrammarEnhancer()
-        result = enhancer.apply_basic_enhancements(text)
+        result = GrammarEnhancer.apply_basic_enhancements(text)
         
         return jsonify({
             'success': True,
@@ -883,6 +1210,7 @@ def ai_format_document():
         # Parse request — file upload preferred over JSON text
         # ------------------------------------------------------------------
         structured_blocks = None
+        table_of_contents = []
         text = ""
 
         if request.files and 'file' in request.files:
@@ -911,8 +1239,13 @@ def ai_format_document():
             if not data:
                 return jsonify({'error': 'Provide either a file upload or a JSON body'}), 400
             text = data.get('text', '').strip()
+            structured_blocks = data.get('structured_blocks') or data.get('blocks') or None
+            table_of_contents = data.get('table_of_contents') or data.get('toc') or []
             if not text:
-                return jsonify({'error': 'No text provided'}), 400
+                if structured_blocks:
+                    text = '\n'.join(str(b.get('text', '')).strip() for b in structured_blocks if str(b.get('text', '')).strip())
+                if not text:
+                    return jsonify({'error': 'No text provided'}), 400
             target_style   = data.get('target_style', 'APA')
             source_style   = data.get('source_style', 'unknown')
             title          = data.get('title', 'Untitled Document')
@@ -936,6 +1269,7 @@ def ai_format_document():
             extra_metadata    = extra_metadata,
             generate_latex    = generate_latex,
             structured_blocks = structured_blocks,
+            table_of_contents = table_of_contents,
         )
 
         status_code = 200 if result.get('success') else 500
@@ -1005,6 +1339,162 @@ def download_formatted_document():
     except Exception as e:
         logger.error(f"Download error: {e}", exc_info=True)
         return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/formatting/new-engine', methods=['POST'])
+@app.route('/api/formatting/experimental-engine', methods=['POST'])
+def run_new_engine_formatting():
+    """
+    Run the standalone formatting_engine pipeline and return preview + artifact references.
+    """
+    temp_input_path = None
+    temp_guidelines_path = None
+    try:
+        if 'file' not in request.files:
+            return jsonify({'error': 'No file uploaded'}), 400
+
+        uploaded = request.files['file']
+        target_style = (request.form.get('target_style') or 'ieee').strip().lower()
+        supported_styles = {'ieee', 'apa', 'acm', 'nature', 'elsevier', 'chicago'}
+        if target_style not in supported_styles:
+            return jsonify({'error': f"Unsupported style '{target_style}'"}), 400
+
+        input_suffix = Path(uploaded.filename or '').suffix.lower()
+        if not input_suffix:
+            input_suffix = '.tmp'
+
+        with tempfile.NamedTemporaryFile(delete=False, suffix=input_suffix) as temp_input:
+            uploaded.save(temp_input.name)
+            temp_input_path = temp_input.name
+
+        custom_rules = None
+        guidelines_file = request.files.get('guidelines')
+        if guidelines_file and guidelines_file.filename:
+            guide_suffix = Path(guidelines_file.filename or '').suffix.lower() or '.tmp'
+            with tempfile.NamedTemporaryFile(delete=False, suffix=guide_suffix) as temp_guidelines:
+                guidelines_file.save(temp_guidelines.name)
+                temp_guidelines_path = temp_guidelines.name
+            extract_guideline_rules = get_guideline_rule_extractor()
+            custom_rules = extract_guideline_rules(temp_guidelines_path)
+
+        output_root = request.form.get('output_dir') or os.path.join(UPLOAD_FOLDER, 'formatting_engine_runs')
+        os.makedirs(output_root, exist_ok=True)
+
+        formatter = get_new_format_document()
+        use_ai_raw = request.form.get('use_ai')
+        if use_ai_raw is not None:
+            use_ai = str(use_ai_raw).strip().lower() in {'1', 'true', 'yes', 'on'}
+        else:
+            use_ai = os.getenv('FORMATTING_ENGINE_USE_AI', '').strip().lower() in {'1', 'true', 'yes', 'on'}
+        previous_local_only = os.environ.get('FORMATTING_ENGINE_LOCAL_ONLY')
+        previous_use_ai = os.environ.get('FORMATTING_ENGINE_USE_AI')
+        if not use_ai:
+            os.environ['FORMATTING_ENGINE_LOCAL_ONLY'] = '1'
+            os.environ['FORMATTING_ENGINE_USE_AI'] = '0'
+        else:
+            os.environ['FORMATTING_ENGINE_LOCAL_ONLY'] = '0'
+            os.environ['FORMATTING_ENGINE_USE_AI'] = '1'
+        try:
+            result = formatter(
+                input_path=temp_input_path,
+                target_style=target_style,
+                output_dir=output_root,
+                custom_rules=custom_rules
+            )
+        finally:
+            if previous_local_only is None:
+                os.environ.pop('FORMATTING_ENGINE_LOCAL_ONLY', None)
+            else:
+                os.environ['FORMATTING_ENGINE_LOCAL_ONLY'] = previous_local_only
+            if previous_use_ai is None:
+                os.environ.pop('FORMATTING_ENGINE_USE_AI', None)
+            else:
+                os.environ['FORMATTING_ENGINE_USE_AI'] = previous_use_ai
+
+        docx_path = result.get('docx_path')
+        run_dir = Path(docx_path).parent if docx_path else Path(result.get('ir_path', output_root)).parent
+        run_id = run_dir.name
+
+        artifact_candidates = {
+            'docx': result.get('docx_path'),
+            'pdf': result.get('pdf_path'),
+            'tex': result.get('latex_path'),
+            'ir': result.get('ir_path'),
+            'layout': result.get('layout_plan_path'),
+        }
+        artifacts = {}
+        for key, path_value in artifact_candidates.items():
+            if path_value and Path(path_value).exists():
+                artifacts[key] = str(Path(path_value).resolve())
+
+        NEW_ENGINE_RUNS[run_id] = {
+            'created_at': int(time.time()),
+            'artifacts': artifacts
+        }
+
+        preview = _build_new_engine_preview(result)
+
+        return jsonify({
+            'success': True,
+            'engine': 'new_engine',
+            'engine_mode': 'local_rules' if not use_ai else 'groq_assisted',
+            'run_id': run_id,
+            'target_style': target_style,
+            'preview': preview,
+            'artifacts': {key: Path(value).name for key, value in artifacts.items()},
+            'available_files': list(artifacts.keys()),
+            'custom_guidelines': custom_rules or result.get('custom_guidelines'),
+            'warnings': result.get('warnings', [])
+        }), 200
+    except Exception as e:
+        logger.error(f"New engine formatting error: {e}", exc_info=True)
+        return jsonify({'error': str(e), 'success': False}), 500
+    finally:
+        if temp_input_path and os.path.exists(temp_input_path):
+            try:
+                os.unlink(temp_input_path)
+            except Exception:
+                pass
+        if temp_guidelines_path and os.path.exists(temp_guidelines_path):
+            try:
+                os.unlink(temp_guidelines_path)
+            except Exception:
+                pass
+
+
+@app.route('/api/formatting/new-engine/download/<run_id>', methods=['GET'])
+@app.route('/api/formatting/experimental-engine/download/<run_id>', methods=['GET'])
+def download_new_engine_artifact(run_id):
+    """
+    Download one artifact produced by /api/formatting/new-engine.
+    Query: ?file=docx|pdf|tex|ir|layout
+    """
+    file_key = (request.args.get('file') or 'docx').strip().lower()
+    allowed = {'docx', 'pdf', 'tex', 'ir', 'layout'}
+    if file_key not in allowed:
+        return jsonify({'error': f"Unsupported file type '{file_key}'"}), 400
+
+    run_info = NEW_ENGINE_RUNS.get(run_id)
+    if not run_info:
+        return jsonify({'error': 'Run not found. Re-run formatting to regenerate artifacts.'}), 404
+
+    artifact_path = (run_info.get('artifacts') or {}).get(file_key)
+    if not artifact_path or not Path(artifact_path).exists():
+        return jsonify({'error': f"Artifact '{file_key}' is not available for this run"}), 404
+
+    mime_map = {
+        'docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        'pdf': 'application/pdf',
+        'tex': 'text/plain',
+        'ir': 'application/json',
+        'layout': 'application/json',
+    }
+    return send_file(
+        artifact_path,
+        as_attachment=True,
+        download_name=Path(artifact_path).name,
+        mimetype=mime_map.get(file_key, 'application/octet-stream')
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -2117,10 +2607,193 @@ def download_stateful_result(job_id):
     return resp
 
 
+# ============================================================================
+# LEGACY NLP ANALYSIS ENDPOINTS (Stubs for compatibility)
+# ============================================================================
+# These endpoints are called by pythonNlpService.js but are not core to the
+# Chapter 4 implementation. They return appropriate error messages or basic
+# implementations without requiring Hugging Face API credentials.
+
+@app.route('/api/nlp/analyze', methods=['POST'])
+def nlp_analyze():
+    """Legacy NLP analysis endpoint"""
+    try:
+        data = request.get_json()
+        if not data or 'text' not in data:
+            return jsonify({'error': 'Text is required'}), 400
+        
+        return jsonify({
+            'success': False,
+            'error': 'NLP analysis not implemented. Use /api/document/sections or /api/grammar/enhance instead.',
+            'recommendation': 'Use Document Formatter or Grammar Enhancer endpoints'
+        }), 501
+    except Exception as e:
+        logger.error(f"NLP analyze error: {e}")
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/nlp/extract', methods=['POST'])
+def nlp_extract():
+    """Legacy NLP extraction endpoint"""
+    try:
+        if 'file' not in request.files:
+            return jsonify({'error': 'No file provided'}), 400
+        
+        # Redirect to centralized file extraction
+        return jsonify({
+            'success': False,
+            'error': 'Use /api/extract/file instead for document extraction'
+        }), 501
+    except Exception as e:
+        logger.error(f"NLP extract error: {e}")
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/nlp/entities', methods=['POST'])
+def nlp_extract_entities():
+    """Legacy entity extraction endpoint"""
+    try:
+        data = request.get_json()
+        if not data or 'text' not in data:
+            return jsonify({'error': 'Text is required'}), 400
+        
+        return jsonify({
+            'success': False,
+            'error': 'Entity extraction not available in this version. Hugging Face API credentials required.',
+            'message': 'This feature requires a valid Hugging Face API token configured in the environment.'
+        }), 503
+    except Exception as e:
+        logger.error(f"Entity extraction error: {e}")
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/nlp/keywords', methods=['POST'])
+def nlp_keywords():
+    """Legacy keyword extraction endpoint"""
+    try:
+        data = request.get_json()
+        if not data or 'text' not in data:
+            return jsonify({'error': 'Text is required'}), 400
+        
+        text = data.get('text', '').strip()
+        max_keywords = data.get('max_keywords', 10)
+        
+        if not text:
+            return jsonify({'error': 'No text provided'}), 400
+        
+        # Simple keyword extraction based on word frequency
+        import re
+        from collections import Counter
+        
+        words = re.findall(r'\b[a-z]{3,}\b', text.lower())
+        stop_words = {'the', 'and', 'for', 'with', 'that', 'this', 'from', 'are', 'was', 'has', 'have', 'been', 'can', 'will', 'not', 'but', 'all', 'one', 'two', 'may', 'should', 'could', 'would', 'also', 'more', 'such', 'each', 'other', 'about', 'which', 'their', 'these', 'those', 'into', 'through', 'during'}
+        
+        filtered_words = [w for w in words if w not in stop_words and len(w) >= 4]
+        counter = Counter(filtered_words)
+        keywords = [{'keyword': word, 'frequency': count} for word, count in counter.most_common(max_keywords)]
+        
+        return jsonify({
+            'success': True,
+            'keywords': keywords,
+            'count': len(keywords)
+        }), 200
+    except Exception as e:
+        logger.error(f"Keywords extraction error: {e}")
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/nlp/summarize', methods=['POST'])
+def nlp_summarize():
+    """Legacy summarization endpoint - extractive summarization without ML"""
+    try:
+        data = request.get_json()
+        if not data or 'text' not in data:
+            return jsonify({'error': 'Text is required'}), 400
+        
+        text = data.get('text', '').strip()
+        max_length = data.get('max_length', 150)
+        
+        if len(text) < 100:
+            return jsonify({
+                'success': False,
+                'error': 'Text too short to summarize (minimum 100 characters)',
+                'summary': text
+            }), 400
+        
+        # Simple extractive summarization
+        import re
+        sentences = re.split(r'(?<=[.!?])\s+', text)[:5]  # First 5 sentences max
+        
+        summary = ' '.join(sentences)
+        if len(summary) > max_length:
+            summary = summary[:max_length].rsplit(' ', 1)[0] + '...'
+        
+        return jsonify({
+            'success': True,
+            'summary': summary,
+            'length': len(summary),
+            'method': 'extractive (simple)'
+        }), 200
+    except Exception as e:
+        logger.error(f"Summarization error: {e}")
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/nlp/sentiment', methods=['POST'])
+def nlp_sentiment():
+    """Legacy sentiment analysis endpoint - lexicon-based analysis"""
+    try:
+        data = request.get_json()
+        if not data or 'text' not in data:
+            return jsonify({'error': 'Text is required'}), 400
+        
+        text = data.get('text', '').strip()
+        
+        if not text:
+            return jsonify({'error': 'No text provided'}), 400
+        
+        # Simple lexicon-based sentiment analysis
+        positive_words = {'good', 'great', 'excellent', 'amazing', 'wonderful', 'fantastic', 'love', 'perfect', 'best', 'awesome', 'brilliant', 'outstanding', 'superb'}
+        negative_words = {'bad', 'terrible', 'awful', 'hate', 'worst', 'poor', 'horrible', 'ugly', 'disgusting', 'wrong', 'dreadful', 'pathetic', 'useless'}
+        
+        text_lower = text.lower()
+        pos_count = sum(1 for word in positive_words if word in text_lower)
+        neg_count = sum(1 for word in negative_words if word in text_lower)
+        total = pos_count + neg_count
+        
+        if total == 0:
+            sentiment = 'neutral'
+            score = 0.5
+        elif pos_count > neg_count:
+            sentiment = 'positive'
+            score = 0.6 + (pos_count / total) * 0.4
+        elif neg_count > pos_count:
+            sentiment = 'negative'
+            score = 0.4 - (neg_count / total) * 0.4
+        else:
+            sentiment = 'neutral'
+            score = 0.5
+        
+        return jsonify({
+            'success': True,
+            'sentiment': sentiment,
+            'score': round(min(1.0, max(0.0, score)), 2),
+            'positive_words_count': pos_count,
+            'negative_words_count': neg_count,
+            'method': 'lexicon-based (simple)'
+        }), 200
+    except Exception as e:
+        logger.error(f"Sentiment analysis error: {e}")
+        return jsonify({'error': str(e)}), 500
+
 
 if __name__ == '__main__':
     logger.info("Starting Python NLP Service - Chapter 4 Implementation")
     logger.info("Algorithms: Grammar Enhancement, Plagiarism Detection, Document Formatting, Section Detection")
-    app.run(host='0.0.0.0', port=5001, debug=True)
+    # Keep the NLP service stable while heavy libraries like Docling/EasyOCR load
+    # models from site-packages. Flask's debug reloader treats those writes/imports
+    # as source changes and can restart the service mid-request.
+    port = int(os.getenv('PORT', '5001'))
+    app.run(host='0.0.0.0', port=port, debug=False, use_reloader=False)
 
 

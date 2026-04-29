@@ -18,7 +18,6 @@ from collections import OrderedDict
 from typing import List, Dict, Tuple, Optional
 from sentence_transformers import SentenceTransformer
 import logging
-from sklearn.metrics.pairwise import cosine_similarity
 import time
 
 # Maximum number of text→embedding vectors kept in memory at once.
@@ -28,6 +27,17 @@ _EMBED_CACHE_MAX = 1024
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+
+def cosine_similarity(vec_a: np.ndarray, vec_b: np.ndarray) -> float:
+    """Lightweight cosine similarity to avoid importing sklearn at startup."""
+    if vec_a is None or vec_b is None:
+        return 0.0
+    norm_a = float(np.linalg.norm(vec_a))
+    norm_b = float(np.linalg.norm(vec_b))
+    if norm_a == 0.0 or norm_b == 0.0:
+        return 0.0
+    return float(np.dot(vec_a, vec_b) / (norm_a * norm_b))
 
 
 class SemanticPlagiarismDetector:
@@ -154,7 +164,7 @@ class SemanticPlagiarismDetector:
                 return 0.0
             
             # Calculate cosine similarity
-            similarity = cosine_similarity([emb1], [emb2])[0][0]
+            similarity = cosine_similarity(emb1, emb2)
             
             return float(similarity)
         except Exception as e:

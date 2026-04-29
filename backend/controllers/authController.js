@@ -1,6 +1,7 @@
 import crypto from 'crypto'
 import User from '../models/User.js'
 import { sendTokenResponse } from '../utils/tokenUtils.js'
+import { logAdminEvent } from '../services/adminLogService.js'
 
 // @desc    Register user
 // @route   POST /api/auth/register
@@ -24,6 +25,16 @@ export const register = async (req, res, next) => {
       email,
       password,
       authProvider: 'local'
+    })
+
+    await logAdminEvent({
+      type: 'info',
+      action: 'user_registered',
+      entityType: 'user',
+      entityId: user._id.toString(),
+      message: `New user registered: ${user.email}`,
+      userId: user._id,
+      metadata: { authProvider: 'local' }
     })
 
     sendTokenResponse(user, 201, res)
@@ -65,6 +76,18 @@ export const login = async (req, res, next) => {
       })
     }
 
+    user.lastLogin = new Date()
+    await user.save()
+
+    await logAdminEvent({
+      type: 'info',
+      action: 'user_login',
+      entityType: 'user',
+      entityId: user._id.toString(),
+      message: `User logged in: ${user.email}`,
+      userId: user._id
+    })
+
     sendTokenResponse(user, 200, res)
   } catch (error) {
     next(error)
@@ -84,6 +107,9 @@ export const getMe = async (req, res, next) => {
         id: user._id,
         name: user.name,
         email: user.email,
+        role: user.role,
+        status: user.status,
+        lastLogin: user.lastLogin,
         avatar: user.avatar,
         emailVerified: user.emailVerified,
         authProvider: user.authProvider,
@@ -198,6 +224,7 @@ export const socialLogin = async (req, res, next) => {
         user.providerId = providerId
         user.avatar = avatar || user.avatar
         user.emailVerified = true
+        user.lastLogin = new Date()
         await user.save()
       } else {
         // Create new user
@@ -208,10 +235,26 @@ export const socialLogin = async (req, res, next) => {
           providerId,
           avatar,
           emailVerified: true,
+          lastLogin: new Date(),
           password: crypto.randomBytes(32).toString('hex') // Random password for social login
         })
       }
     }
+
+    if (!user.lastLogin) {
+      user.lastLogin = new Date()
+      await user.save()
+    }
+
+    await logAdminEvent({
+      type: 'info',
+      action: 'user_social_login',
+      entityType: 'user',
+      entityId: user._id.toString(),
+      message: `User authenticated via ${provider}: ${user.email}`,
+      userId: user._id,
+      metadata: { provider }
+    })
 
     sendTokenResponse(user, 200, res)
   } catch (error) {

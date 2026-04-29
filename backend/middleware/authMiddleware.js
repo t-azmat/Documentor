@@ -70,3 +70,23 @@ export const requireFeature = (feature) => {
     next()
   }
 }
+
+export const requireRole = (...roles) => {
+  return (req, res, next) => {
+    if (!req.user) {
+      return res.status(401).json({
+        status: 'error',
+        message: 'Not authorized'
+      })
+    }
+
+    if (!roles.includes(req.user.role)) {
+      return res.status(403).json({
+        status: 'error',
+        message: 'You do not have permission to access this resource'
+      })
+    }
+
+    next()
+  }
+}

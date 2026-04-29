@@ -19,6 +19,7 @@ from typing import Dict, List, Optional
 from document_chunker   import DocumentChunker
 from citation_converter import CitationConverter
 from latex_generator    import LaTeXGenerator
+from rag_analyzer       import RAGAnalyzer
 
 logger = logging.getLogger(__name__)
 
@@ -32,6 +33,7 @@ class AIDocumentFormatter:
         self.chunker    = DocumentChunker()
         self.converter  = CitationConverter()
         self.latex_gen  = LaTeXGenerator()
+        self.rag        = RAGAnalyzer()
 
     # ------------------------------------------------------------------
     # Public API
@@ -47,6 +49,7 @@ class AIDocumentFormatter:
         extra_metadata: Optional[Dict] = None,
         generate_latex: bool     = True,
         structured_blocks: Optional[List[Dict]] = None,
+        table_of_contents: Optional[List[Dict]] = None,
     ) -> Dict:
         """
         structured_blocks: if provided (output of FileExtractor.extract_structured()),
@@ -82,6 +85,7 @@ class AIDocumentFormatter:
             "latex":          "",
             "plain_sections": [],
             "citation_stats": {},
+            "gap_report": {},
             "warnings":       [],
             "error":          None,
         }
@@ -94,7 +98,11 @@ class AIDocumentFormatter:
             if structured_blocks:
                 # Preferred path: structured blocks carry explicit heading styles
                 logger.info("[Formatter] Using structured block chunking (DOCX/PDF metadata)")
-                chunks = self.chunker.chunk_blocks(structured_blocks, title=title)
+                chunks = self.chunker.chunk_blocks(
+                    structured_blocks,
+                    title=title,
+                    table_of_contents=table_of_contents
+                )
             else:
                 # Fallback: regex + bottom-up reference detection on raw text
                 logger.info("[Formatter] Using text-mode chunking (regex + ref detector)")
@@ -112,28 +120,50 @@ class AIDocumentFormatter:
             deduped_chunks = self._deduplicate_chunks(chunks)
 
             # ----------------------------------------------------------
-            # Step 2 – Citation style conversion
+            # Step 2 – Structural gap analysis (RAG)
             # ----------------------------------------------------------
-            logger.info("[Formatter] Step 2: Converting citations …")
-            citation_stats, converted_chunks = self._convert_citations(
+            logger.info("[Formatter] Step 2: Analysing structure and gaps …")
+            gap_report = self.rag.analyse(deduped_chunks)
+            gap_report["table_of_contents"] = table_of_contents or []
+            gap_report["toc_alignment"] = self._build_toc_alignment(
+                deduped_chunks,
+                table_of_contents or []
+            )
+            result["gap_report"] = gap_report
+
+            # ----------------------------------------------------------
+            # Step 3 – Citation style conversion
+            # ----------------------------------------------------------
+            logger.info("[Formatter] Step 3: Converting citations …")
+            citation_stats, converted_chunks, parsed_references = self._convert_citations(
                 deduped_chunks, source_style, target_style
             )
             result["citation_stats"] = citation_stats
 
             # ----------------------------------------------------------
-            # Step 2b – Rebuild references: parse → render → sort → end
+            # Step 3b – Rebuild references: parse → render → sort → end
             # ----------------------------------------------------------
-            logger.info("[Formatter] Step 2b: Rebuilding references section …")
-            converted_chunks = self._rebuild_references_section(converted_chunks, target_style)
+            logger.info("[Formatter] Step 3b: Rebuilding references section …")
+            converted_chunks, parsed_references = self._rebuild_references_section(
+                converted_chunks,
+                target_style,
+                parsed_references=parsed_references,
+            )
             result["plain_sections"] = [
-                {"section_type": c["section_type"], "heading": c["heading"], "text": c["text"]}
+                {
+                    "section_type": c["section_type"],
+                    "heading": c["heading"],
+                    "text": c["text"],
+                    "section_level": c.get("section_level", 1),
+                    "block_count": c.get("block_count", 0)
+                }
                 for c in converted_chunks
             ]
 
             # ----------------------------------------------------------
-            # Step 3 – Build nested section tree from converted chunks
+            # Step 4 – Build nested section tree from converted chunks
             # ----------------------------------------------------------
-            logger.info("[Formatter] Step 3: Building nested section tree …")
+            logger.info("[Formatter] Step 4: Building nested section tree …")
             section_tree = None
             try:
                 section_tree = self.chunker.build_tree(
@@ -146,13 +176,13 @@ class AIDocumentFormatter:
                 logger.warning("[Formatter] Tree building failed: %s", e)
 
             # ----------------------------------------------------------
-            # Step 4 – LaTeX generation
+            # Step 5 – LaTeX generation
             # ----------------------------------------------------------
             if not generate_latex:
                 result["success"] = True
                 return result
 
-            logger.info("[Formatter] Step 4: Generating LaTeX …")
+            logger.info("[Formatter] Step 5: Generating LaTeX …")
             abstract_text   = self._extract_section(converted_chunks, "abstract")
             references_text = self._extract_section(converted_chunks, "references")
             body_sections   = [
@@ -161,7 +191,9 @@ class AIDocumentFormatter:
             ]
 
             references_latex = self._build_references_latex(
-                references_text, target_style
+                references_text,
+                target_style,
+                parsed_entries=parsed_references,
             )
 
             latex = self.latex_gen.generate(
@@ -183,11 +215,65 @@ class AIDocumentFormatter:
 
         return result
 
+    def _build_toc_alignment(self, chunks: List[Dict], table_of_contents: List[Dict]) -> Dict:
+        if not table_of_contents:
+            return {
+                "toc_entries": 0,
+                "matched_entries": [],
+                "missing_entries": [],
+                "coverage": 0.0
+            }
+
+        chunk_map = {
+            self._normalize_heading(c.get("heading", "")): {
+                "heading": c.get("heading", ""),
+                "section_type": c.get("section_type", "generic"),
+                "section_level": c.get("section_level", 1)
+            }
+            for c in chunks
+            if c.get("heading")
+        }
+
+        matched = []
+        missing = []
+
+        for entry in table_of_contents:
+            text = str(entry.get("text", "")).strip()
+            if not text:
+                continue
+            normalized = self._normalize_heading(text)
+            if normalized in chunk_map:
+                matched.append({
+                    "toc_text": text,
+                    "section_type": chunk_map[normalized]["section_type"],
+                    "section_level": chunk_map[normalized]["section_level"]
+                })
+            else:
+                missing.append(text)
+
+        total = len(matched) + len(missing)
+        coverage = (len(matched) / total) if total else 0.0
+        return {
+            "toc_entries": total,
+            "matched_entries": matched,
+            "missing_entries": missing,
+            "coverage": round(coverage, 3)
+        }
+
+    @staticmethod
+    def _normalize_heading(text: str) -> str:
+        return re.sub(r'\s+', ' ', (text or '').strip()).lower()
+
     # ------------------------------------------------------------------
     # Helper methods
     # ------------------------------------------------------------------
 
-    def _rebuild_references_section(self, chunks: List[Dict], style: str) -> List[Dict]:
+    def _rebuild_references_section(
+        self,
+        chunks: List[Dict],
+        style: str,
+        parsed_references: Optional[List[Dict]] = None,
+    ) -> (List[Dict], List[Dict]):
         """
         AI-powered reference rebuilding:
         1. Collect every entry from all references chunks.
@@ -227,7 +313,7 @@ class AIDocumentFormatter:
                 non_ref.append(c)
 
         if not all_raw_entries:
-            return chunks  # nothing to rebuild — leave document unchanged
+            return chunks, (parsed_references or [])  # nothing to rebuild — leave document unchanged
 
         # Deduplicate raw entries first (before parsing) so that distinct but
         # poorly-parsed entries are never collapsed together.
@@ -239,6 +325,14 @@ class AIDocumentFormatter:
                 seen_raw.add(key)
                 deduped_raw.append(raw.strip())
 
+        parsed_by_raw = {}
+        for record in parsed_references or []:
+            raw_key = " ".join(str(record.get("raw", "")).lower().split())
+            if raw_key:
+                parsed_by_raw[raw_key] = record
+
+        next_parsed: List[Dict] = []
+
         # Parse-and-render each unique raw entry into the target style.
         # A "parse failure" occurs when the record has no real authors/title/year —
         # in that case we preserve the original raw text verbatim so nothing is lost.
@@ -249,7 +343,9 @@ class AIDocumentFormatter:
         unique: List[str] = []
         for raw in deduped_raw:
             try:
-                record = self.converter._parse(raw, style)
+                raw_key = " ".join(raw.lower().split())
+                record = parsed_by_raw.get(raw_key) or self.converter._parse(raw, style)
+                next_parsed.append(record)
                 authors_str = self.converter._format_authors_apa(record.get("authors", [])).lower()
                 title_str   = (record.get("title") or "").lower()
                 year_str    = (record.get("year")  or "").lower()
@@ -296,7 +392,7 @@ class AIDocumentFormatter:
                     len(unique), style)
 
         # References section always goes to the end
-        return non_ref + [ref_chunk]
+        return non_ref + [ref_chunk], next_parsed
 
     def _sort_ref_entries(self, text: str, style: str) -> str:
         """
@@ -377,7 +473,7 @@ class AIDocumentFormatter:
         chunks: List[Dict],
         source_style: str,
         target_style: str,
-    ) -> (Dict, List[Dict]):
+    ) -> (Dict, List[Dict], List[Dict]):
         """
         Detect source style from the references chunk, then convert all in-text
         citations AND the references section to target_style.
@@ -399,7 +495,13 @@ class AIDocumentFormatter:
 
         # Nothing to do if styles match
         if source_style == target_style:
-            return stats, chunks
+            parsed_refs = []
+            if ref_text:
+                try:
+                    parsed_refs = self.converter.parse_reference_list(ref_text, source_style)
+                except Exception:
+                    parsed_refs = []
+            return stats, chunks, parsed_refs
 
         # Pre-parse reference list for in-text conversion mapping
         parsed_refs = []
@@ -438,14 +540,19 @@ class AIDocumentFormatter:
                                  c.get("heading"), e)
             updated.append(c)
 
-        return stats, updated
+        return stats, updated, parsed_refs
 
     def _extract_section(self, chunks: List[Dict], section_type: str) -> str:
         """Return the merged text for all chunks of a given section_type."""
         parts = [c["text"] for c in chunks if c["section_type"] == section_type]
         return "\n\n".join(parts)
 
-    def _build_references_latex(self, references_text: str, style: str) -> str:
+    def _build_references_latex(
+        self,
+        references_text: str,
+        style: str,
+        parsed_entries: Optional[List[Dict]] = None,
+    ) -> str:
         """
         Convert a plain-text reference list into LaTeX bibliography entries.
         For biblatex styles returns BibTeX @article blocks;
@@ -454,7 +561,7 @@ class AIDocumentFormatter:
         if not references_text.strip():
             return ""
 
-        entries = self.converter.parse_reference_list(references_text)
+        entries = parsed_entries or self.converter.parse_reference_list(references_text)
         if not entries:
             # Fallback: wrap raw lines as bibitems
             lines = [l.strip() for l in references_text.splitlines() if l.strip()]

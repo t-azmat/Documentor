@@ -1,15 +1,4 @@
-"""
-Document Formatting Service - Chapter 4 Implementation
-Implements multiple citation and document formatting styles
-Implements Algorithm 3: DocumentFormattingEngine from Chapter 4.1.4
 
-Supported Styles:
-- APA (American Psychological Association) - 7th edition
-- MLA (Modern Language Association) - 9th edition  
-- IEEE (Institute of Electrical and Electronics Engineers)
-- Chicago (Chicago Manual of Style) - 17th edition
-- Harvard (Harvard Referencing)
-"""
 
 import re
 from typing import List, Dict, Optional, Tuple
@@ -21,13 +10,7 @@ logger = logging.getLogger(__name__)
 
 
 class DocumentFormattingEngine:
-    """
-    Multi-style document formatting engine
-    
-    Implements: Algorithm 3 - DocumentFormattingEngine (Chapter 4.1.4)
-    Supported Styles: APA, MLA, IEEE, Chicago, Harvard
-    Accuracy: 89.7% (Chapter 4 evaluation)
-    """
+   
     
     SUPPORTED_STYLES = ['APA', 'MLA', 'IEEE', 'Chicago', 'Harvard']
     
@@ -55,16 +38,7 @@ class DocumentFormattingEngine:
         return True
     
     def format_title(self, title: str, style: Optional[str] = None) -> str:
-        """
-        Format document title according to style
-        
-        Args:
-            title: Title text
-            style: Optional style override
-            
-        Returns:
-            Formatted title
-        """
+      
         style = style or self.current_style
         
         if style == 'APA':
@@ -90,29 +64,19 @@ class DocumentFormattingEngine:
         return title
     
     def format_heading(self, text: str, level: int = 1, style: Optional[str] = None) -> str:
-        """
-        Format section heading according to style
-        
-        Args:
-            text: Heading text
-            level: Heading level (1-5)
-            style: Optional style override
-            
-        Returns:
-            Formatted heading
-        """
+     
         style = style or self.current_style
         
         if style == 'APA':
             return self._format_apa_heading(text, level)
         elif style == 'MLA':
-            return text  # MLA doesn't have special heading formatting
+            return self._format_mla_heading(text, level)
         elif style == 'IEEE':
             return self._format_ieee_heading(text, level)
         elif style == 'Chicago':
             return self._format_chicago_heading(text, level)
         elif style == 'Harvard':
-            return text
+            return self._format_harvard_heading(text, level)
         
         return text
     
@@ -126,21 +90,7 @@ class DocumentFormattingEngine:
         url: str = "",
         style: Optional[str] = None
     ) -> str:
-        """
-        Format in-text citation according to style
         
-        Args:
-            author: Author name(s)
-            year: Publication year
-            title: Work title
-            source: Publication source (journal, book, etc.)
-            pages: Page numbers
-            url: URL if applicable
-            style: Optional style override
-            
-        Returns:
-            Formatted citation
-        """
         style = style or self.current_style
         
         if style == 'APA':
@@ -176,22 +126,7 @@ class DocumentFormattingEngine:
         doi: str = "",
         style: Optional[str] = None
     ) -> str:
-        """
-        Format reference/bibliography entry according to style
-        
-        Args:
-            author: Author name(s)
-            year: Publication year
-            title: Work title
-            source: Publication source (journal, book, etc.)
-            pages: Page numbers
-            url: URL if applicable
-            doi: DOI if applicable
-            style: Optional style override
-            
-        Returns:
-            Formatted reference entry
-        """
+      
         style = style or self.current_style
         
         if style == 'APA':
@@ -212,17 +147,7 @@ class DocumentFormattingEngine:
         return f"{author} ({year}). {title}. {source}."
     
     def format_paragraph(self, text: str, style: Optional[str] = None) -> str:
-        """
-        Format paragraph according to style
-        Handles indentation and spacing
-        
-        Args:
-            text: Paragraph text
-            style: Optional style override
-            
-        Returns:
-            Formatted paragraph
-        """
+       
         style = style or self.current_style
         
         # Remove extra whitespace
@@ -234,21 +159,79 @@ class DocumentFormattingEngine:
         
         return text
     
+    def parse_raw_reference(self, raw_text: str) -> Dict:
+        """Parse a raw reference string into structured fields.
+        
+        Handles common formats: APA, IEEE, Chicago.
+        Returns dict with keys: authors, year, title, source, pages, doi, url
+        """
+        result = {
+            'authors': '',
+            'year': '',
+            'title': '',
+            'source': '',
+            'pages': '',
+            'doi': '',
+            'url': ''
+        }
+        
+        if not raw_text:
+            return result
+        
+        # Extract DOI
+        doi_match = re.search(r'doi[.:\s]+([\d.]+/[\S]+)', raw_text, re.IGNORECASE)
+        if doi_match:
+            result['doi'] = doi_match.group(1)
+        
+        # Extract URL
+        url_match = re.search(r'(https?://[^\s,]+)', raw_text)
+        if url_match:
+            result['url'] = url_match.group(1)
+        
+        # Extract year (4-digit number)
+        year_match = re.search(r'\b(20\d{2}|19\d{2})\b', raw_text)
+        if year_match:
+            result['year'] = year_match.group(1)
+        
+        # Extract pages (pp. X-Y or pages X-Y)
+        pages_match = re.search(r'(?:pp\.?|pages?)[\s.]+([\d\-]+)', raw_text, re.IGNORECASE)
+        if pages_match:
+            result['pages'] = pages_match.group(1)
+        
+        # Extract title (quoted text or text before source)
+        title_match = re.search(r'["\']([^"\']*)["\']\.', raw_text)
+        if title_match:
+            result['title'] = title_match.group(1)
+        
+        # Extract authors (text before year or at start)
+        if result['year']:
+            author_match = re.match(r'^([^(\[]*?)\s*(?:\(|\[|,)?\s*' + re.escape(result['year']), raw_text)
+            if author_match:
+                result['authors'] = author_match.group(1).strip()
+        else:
+            # Fallback: take first part before common separators
+            parts = re.split(r'[.,(\[\]]', raw_text)
+            if parts:
+                result['authors'] = parts[0].strip()
+        
+        # Extract source (journal/publisher/conference name)
+        # Look for italicized or quoted source after title
+        source_match = re.search(r'(?:in|from|journal|in\s+)([^,]*?)(?:,|vol|pp\.)', raw_text, re.IGNORECASE)
+        if not source_match:
+            # Fallback: take text between year and pages
+            source_match = re.search(r'(?:' + result['year'] + r')?\s*([^,]*?)(?:,?\s*pp\.)', raw_text) if result['year'] else None
+        
+        if source_match:
+            result['source'] = source_match.group(1).strip()
+        
+        return result
+    
     def format_document(
         self,
         content: Dict,
         style: Optional[str] = None
     ) -> Dict:
-        """
-        Format entire document with all components
-        
-        Args:
-            content: Dict with keys: title, abstract, sections, references
-            style: Optional style override
-            
-        Returns:
-            Formatted document with applied rules
-        """
+       
         style = style or self.current_style
         
         if not self.set_style(style):
@@ -263,30 +246,52 @@ class DocumentFormattingEngine:
             "appliedRules": []
         }
         
-        # Format sections
+        # Format sections with new key structure
         for section in content.get('sections', []):
+            # Support both old (content key) and new (text key) input formats
+            section_text = section.get('text', '') or section.get('content', '')
+            section_heading = section.get('heading', '')
+            
             formatted_section = {
+                "section_type": section.get('section_type', section.get('type', 'generic')),
                 "heading": self.format_heading(
-                    section.get('heading', ''),
+                    section_heading,
                     section.get('level', 1),
                     style
                 ),
-                "content": self.format_paragraph(section.get('content', ''), style)
+                "text": self.format_paragraph(section_text, style),
+                "level": section.get('level', 1)
             }
             formatted['sections'].append(formatted_section)
         
         # Format references
         for ref in content.get('references', []):
-            formatted_ref = self.format_reference(
-                ref.get('author', ''),
-                ref.get('year', ''),
-                ref.get('title', ''),
-                ref.get('source', ''),
-                ref.get('pages', ''),
-                ref.get('url', ''),
-                ref.get('doi', ''),
-                style
-            )
+            # Support raw_text format (new IR) and separate fields (old format)
+            if 'raw_text' in ref and ref['raw_text']:
+                # Parse raw reference first
+                parsed = self.parse_raw_reference(ref['raw_text'])
+                formatted_ref = self.format_reference(
+                    parsed.get('authors', ''),
+                    parsed.get('year', ''),
+                    parsed.get('title', ''),
+                    parsed.get('source', ''),
+                    parsed.get('pages', ''),
+                    parsed.get('url', ''),
+                    parsed.get('doi', ''),
+                    style
+                )
+            else:
+                # Old format with separate fields
+                formatted_ref = self.format_reference(
+                    ref.get('author', ref.get('authors', '')),
+                    ref.get('year', ''),
+                    ref.get('title', ''),
+                    ref.get('source', ''),
+                    ref.get('pages', ''),
+                    ref.get('url', ''),
+                    ref.get('doi', ''),
+                    style
+                )
             formatted['references'].append(formatted_ref)
         
         # Record applied rules
@@ -297,50 +302,55 @@ class DocumentFormattingEngine:
     def _title_case(self, text: str) -> str:
         """Convert text to title case"""
         # Words that should not be capitalized
-        lowercase_words = {'a', 'an', 'the', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for', 'of', 'with', 'by'}
+        lowercase_words = {'a', 'an', 'the', 'and', 'or', 'nor', 'but', 'is', 'if', 'then', 'else', 'when', 'in', 'on', 'at', 'to', 'for', 'of', 'with', 'by', 'from', 'up', 'down', 'out', 'off', 'over', 'under', 'into', 'onto'}
         
         words = text.split()
         result = []
         
         for i, word in enumerate(words):
-            if i == 0 or word.lower() not in lowercase_words:
-                result.append(word.capitalize())
+            if '-' in word:
+                sub_words = word.split('-')
+                sub_result = []
+                for j, sub_word in enumerate(sub_words):
+                    if j == 0 or (sub_word.lower() not in lowercase_words):
+                        sub_result.append(sub_word[0].upper() + sub_word[1:] if len(sub_word) > 0 else '')
+                    else:
+                        sub_result.append(sub_word.lower())
+                word_to_add = '-'.join(sub_result)
             else:
-                result.append(word.lower())
-        
+                if i == 0 or i == len(words) - 1 or word.lower() not in lowercase_words:
+                    word_to_add = word[0].upper() + word[1:] if len(word) > 0 else ''
+                else:
+                    word_to_add = word.lower()
+            result.append(word_to_add)
+            
         return ' '.join(result)
     
     def _format_apa_heading(self, text: str, level: int = 1) -> str:
-        """Format APA style heading"""
-        if level == 1:
-            return f"** {text.upper()} **"  # Centered, bold, uppercase
-        elif level == 2:
-            return f"** {self._title_case(text)} **"  # Bold
-        elif level == 3:
-            return f"** {self._title_case(text)} **"  # Bold, indented
-        else:
-            return self._title_case(text)
+        """Format APA style heading - text only, no markup"""
+        # All levels return title-cased text (markup applied by LaTeX generator)
+        return self._title_case(text)
     
     def _format_ieee_heading(self, text: str, level: int = 1) -> str:
-        """Format IEEE style heading"""
+        """Format IEEE style heading - text only, no markup"""
         if level == 1:
-            return f"I. {text.upper()}"
-        elif level == 2:
-            return f"A. {text}"
-        elif level == 3:
-            return f"1) {text}"
+            return text.upper()  # Roman numerals added by latex_generator
         else:
             return text
     
     def _format_chicago_heading(self, text: str, level: int = 1) -> str:
-        """Format Chicago style heading"""
-        if level == 1:
-            return text.upper()
-        elif level == 2:
-            return self._title_case(text)
-        else:
-            return text
+        """Format Chicago style heading - text only, no markup"""
+        # All levels: return title case (LaTeX generator applies formatting)
+        return self._title_case(text)
     
+    def _format_mla_heading(self, text: str, level: int = 1) -> str:
+        """Format MLA style heading - text only, no markup"""
+        return self._title_case(text)
+
+    def _format_harvard_heading(self, text: str, level: int = 1) -> str:
+        """Format Harvard style heading - text only, no markup"""
+        return self._title_case(text)
+
     def _format_apa_reference(
         self,
         author: str,

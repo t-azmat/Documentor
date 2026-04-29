@@ -1,7 +1,6 @@
-import { useState, useEffect } from 'react'
-import { collection, getDocs, query, orderBy, limit } from 'firebase/firestore'
-import { db } from '../../config/firebase'
+import { useEffect, useState } from 'react'
 import { FaExclamationCircle, FaCheckCircle, FaInfoCircle, FaClock, FaChartLine } from 'react-icons/fa'
+import { adminAPI } from '../../services/api'
 
 const SystemLogs = () => {
   const [logs, setLogs] = useState([])
@@ -15,103 +14,34 @@ const SystemLogs = () => {
   })
 
   useEffect(() => {
-    fetchLogs()
-  }, [])
-
-  const fetchLogs = async () => {
-    try {
-      // Fetch system logs
-      const logsQuery = query(
-        collection(db, 'systemLogs'),
-        orderBy('timestamp', 'desc'),
-        limit(100)
-      )
-      const querySnapshot = await getDocs(logsQuery)
-      const logsData = querySnapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      }))
-      
-      setLogs(logsData)
-      
-      // Calculate stats
-      const newStats = {
-        totalLogs: logsData.length,
-        errors: logsData.filter(log => log.type === 'error').length,
-        warnings: logsData.filter(log => log.type === 'warning').length,
-        info: logsData.filter(log => log.type === 'info').length
+    const fetchLogs = async () => {
+      try {
+        setLoading(true)
+        const response = await adminAPI.getLogs(filter === 'all' ? {} : { type: filter })
+        const logsData = response.data.logs || []
+        setLogs(logsData)
+        setStats(response.data.stats || {
+          totalLogs: logsData.length,
+          errors: 0,
+          warnings: 0,
+          info: 0
+        })
+      } catch (error) {
+        console.error('Error fetching logs:', error)
+        setLogs([])
+        setStats({
+          totalLogs: 0,
+          errors: 0,
+          warnings: 0,
+          info: 0
+        })
+      } finally {
+        setLoading(false)
       }
-      setStats(newStats)
-    } catch (error) {
-      console.error('Error fetching logs:', error)
-      // Generate mock data for demo
-      generateMockLogs()
-    } finally {
-      setLoading(false)
     }
-  }
 
-  const generateMockLogs = () => {
-    const mockLogs = [
-      {
-        id: '1',
-        type: 'info',
-        message: 'User logged in successfully',
-        timestamp: new Date(Date.now() - 5 * 60000).toISOString(),
-        details: 'User ID: user123'
-      },
-      {
-        id: '2',
-        type: 'error',
-        message: 'Failed to process document',
-        timestamp: new Date(Date.now() - 15 * 60000).toISOString(),
-        details: 'Document ID: doc456 - Timeout after 30s'
-      },
-      {
-        id: '3',
-        type: 'warning',
-        message: 'High memory usage detected',
-        timestamp: new Date(Date.now() - 30 * 60000).toISOString(),
-        details: 'Memory usage: 85% - Consider optimization'
-      },
-      {
-        id: '4',
-        type: 'info',
-        message: 'Style template created',
-        timestamp: new Date(Date.now() - 45 * 60000).toISOString(),
-        details: 'Template: APA 7th Edition'
-      },
-      {
-        id: '5',
-        type: 'error',
-        message: 'Database connection failed',
-        timestamp: new Date(Date.now() - 60 * 60000).toISOString(),
-        details: 'Connection timeout - Retrying...'
-      },
-      {
-        id: '6',
-        type: 'info',
-        message: 'Backup completed successfully',
-        timestamp: new Date(Date.now() - 120 * 60000).toISOString(),
-        details: 'Backed up 1,234 documents'
-      },
-      {
-        id: '7',
-        type: 'warning',
-        message: 'API rate limit approaching',
-        timestamp: new Date(Date.now() - 180 * 60000).toISOString(),
-        details: '450/500 requests used'
-      }
-    ]
-    
-    setLogs(mockLogs)
-    setStats({
-      totalLogs: mockLogs.length,
-      errors: mockLogs.filter(log => log.type === 'error').length,
-      warnings: mockLogs.filter(log => log.type === 'warning').length,
-      info: mockLogs.filter(log => log.type === 'info').length
-    })
-  }
+    fetchLogs()
+  }, [filter])
 
   const getLogIcon = (type) => {
     switch (type) {
@@ -142,7 +72,7 @@ const SystemLogs = () => {
   const formatTimestamp = (timestamp) => {
     const date = new Date(timestamp)
     const now = new Date()
-    const diff = Math.floor((now - date) / 1000) // seconds
+    const diff = Math.floor((now - date) / 1000)
 
     if (diff < 60) return `${diff}s ago`
     if (diff < 3600) return `${Math.floor(diff / 60)}m ago`
@@ -150,14 +80,10 @@ const SystemLogs = () => {
     return date.toLocaleString()
   }
 
-  const filteredLogs = filter === 'all' 
-    ? logs 
-    : logs.filter(log => log.type === filter)
-
   if (loading) {
     return (
-      <div className="text-center py-12">
-        <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mb-4"></div>
+      <div className="py-12 text-center">
+        <div className="mb-4 inline-block h-12 w-12 animate-spin rounded-full border-b-2 border-blue-600"></div>
         <p className="text-gray-600">Loading system logs...</p>
       </div>
     )
@@ -166,13 +92,12 @@ const SystemLogs = () => {
   return (
     <div>
       <div className="mb-6">
-        <h2 className="text-xl font-bold text-gray-900 mb-1">System Logs</h2>
+        <h2 className="mb-1 text-xl font-bold text-gray-900">System Logs</h2>
         <p className="text-sm text-gray-600">Monitor system activity, errors, and performance</p>
       </div>
 
-      {/* Stats */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-        <div className="bg-white border border-gray-200 rounded-lg p-4">
+      <div className="mb-6 grid grid-cols-2 gap-4 md:grid-cols-4">
+        <div className="rounded-lg border border-gray-200 bg-white p-4">
           <div className="flex items-center gap-3">
             <FaChartLine className="text-2xl text-gray-600" />
             <div>
@@ -181,7 +106,7 @@ const SystemLogs = () => {
             </div>
           </div>
         </div>
-        <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+        <div className="rounded-lg border border-red-200 bg-red-50 p-4">
           <div className="flex items-center gap-3">
             <FaExclamationCircle className="text-2xl text-red-600" />
             <div>
@@ -190,7 +115,7 @@ const SystemLogs = () => {
             </div>
           </div>
         </div>
-        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+        <div className="rounded-lg border border-yellow-200 bg-yellow-50 p-4">
           <div className="flex items-center gap-3">
             <FaExclamationCircle className="text-2xl text-yellow-600" />
             <div>
@@ -199,7 +124,7 @@ const SystemLogs = () => {
             </div>
           </div>
         </div>
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+        <div className="rounded-lg border border-blue-200 bg-blue-50 p-4">
           <div className="flex items-center gap-3">
             <FaInfoCircle className="text-2xl text-blue-600" />
             <div>
@@ -210,11 +135,10 @@ const SystemLogs = () => {
         </div>
       </div>
 
-      {/* Filters */}
-      <div className="flex gap-2 mb-4">
+      <div className="mb-4 flex gap-2">
         <button
           onClick={() => setFilter('all')}
-          className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+          className={`rounded-lg px-4 py-2 font-medium transition-colors ${
             filter === 'all'
               ? 'bg-blue-600 text-white'
               : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
@@ -224,7 +148,7 @@ const SystemLogs = () => {
         </button>
         <button
           onClick={() => setFilter('error')}
-          className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+          className={`rounded-lg px-4 py-2 font-medium transition-colors ${
             filter === 'error'
               ? 'bg-red-600 text-white'
               : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
@@ -234,7 +158,7 @@ const SystemLogs = () => {
         </button>
         <button
           onClick={() => setFilter('warning')}
-          className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+          className={`rounded-lg px-4 py-2 font-medium transition-colors ${
             filter === 'warning'
               ? 'bg-yellow-600 text-white'
               : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
@@ -244,7 +168,7 @@ const SystemLogs = () => {
         </button>
         <button
           onClick={() => setFilter('info')}
-          className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+          className={`rounded-lg px-4 py-2 font-medium transition-colors ${
             filter === 'info'
               ? 'bg-blue-600 text-white'
               : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
@@ -254,34 +178,33 @@ const SystemLogs = () => {
         </button>
       </div>
 
-      {/* Logs List */}
       <div className="space-y-3">
-        {filteredLogs.length === 0 ? (
-          <div className="text-center py-12 bg-gray-50 border border-gray-200 rounded-lg">
-            <FaInfoCircle className="text-5xl text-gray-300 mx-auto mb-3" />
+        {logs.length === 0 ? (
+          <div className="rounded-lg border border-gray-200 bg-gray-50 py-12 text-center">
+            <FaInfoCircle className="mx-auto mb-3 text-5xl text-gray-300" />
             <p className="text-gray-600">No logs found</p>
           </div>
         ) : (
-          filteredLogs.map(log => (
-            <div
-              key={log.id}
-              className={`border rounded-lg p-4 ${getLogColor(log.type)}`}
-            >
+          logs.map((log) => (
+            <div key={log._id} className={`rounded-lg border p-4 ${getLogColor(log.type)}`}>
               <div className="flex items-start gap-3">
-                <div className="text-xl mt-1">
+                <div className="mt-1 text-xl">
                   {getLogIcon(log.type)}
                 </div>
                 <div className="flex-1">
-                  <div className="flex items-center justify-between mb-1">
+                  <div className="mb-1 flex items-center justify-between">
                     <span className="font-semibold text-gray-900">{log.message}</span>
                     <span className="flex items-center gap-1 text-xs text-gray-500">
                       <FaClock />
-                      {formatTimestamp(log.timestamp)}
+                      {formatTimestamp(log.createdAt)}
                     </span>
                   </div>
-                  {log.details && (
-                    <p className="text-sm text-gray-700">{log.details}</p>
-                  )}
+                  {log.details ? <p className="text-sm text-gray-700">{log.details}</p> : null}
+                  {log.userId ? (
+                    <p className="mt-2 text-xs text-gray-500">
+                      User: {log.userId.name || 'Unknown'} ({log.userId.email || 'No email'})
+                    </p>
+                  ) : null}
                 </div>
               </div>
             </div>

@@ -9,6 +9,7 @@ import {
   viewDocument,
   downloadDocument,
   extractContent,
+  aiFormatDocument,
   upload
 } from '../controllers/documentController.js'
 import { protect } from '../middleware/authMiddleware.js'
@@ -23,6 +24,7 @@ router.get('/:id/view', viewDocument)
 router.use(protect)
 
 router.post('/upload', upload.single('file'), uploadDocument)
+router.post('/:id/ai-format', aiFormatDocument)  // ✅ AI formatting endpoint
 router.get('/stats', getDocumentStats)
 router.get('/', getDocuments)
 router.get('/:id', getDocument)

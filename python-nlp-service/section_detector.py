@@ -1,41 +1,62 @@
-"""
-Document Section Detection Service - Chapter 4 Implementation
-Detects and extracts document sections using pattern matching and ML
-Implements Algorithm 4: DocumentSectionDetector from Chapter 4.1.5
-
-Detectable Sections:
-- Abstract
-- Introduction  
-- Methodology / Methods
-- Results
-- Discussion
-- Conclusion / Conclusions
-- References / Bibliography
-"""
 
 import re
 from typing import List, Dict, Optional, Tuple
 import logging
-from sklearn.naive_bayes import GaussianNB
 import numpy as np
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
+class GaussianNB:
+    """
+    Minimal Gaussian Naive Bayes implementation used to avoid a hard
+    scikit-learn runtime dependency during service startup.
+    """
+
+    def __init__(self):
+        self.classes_ = np.array([])
+        self.class_prior_ = {}
+        self.theta_ = {}
+        self.var_ = {}
+        self._eps = 1e-9
+
+    def fit(self, X, y):
+        X = np.asarray(X, dtype=float)
+        y = np.asarray(y)
+        self.classes_ = np.unique(y)
+
+        total = len(y)
+        for cls in self.classes_:
+            cls_rows = X[y == cls]
+            self.class_prior_[cls] = float(len(cls_rows) / max(total, 1))
+            self.theta_[cls] = np.mean(cls_rows, axis=0)
+            self.var_[cls] = np.var(cls_rows, axis=0) + self._eps
+        return self
+
+    def predict_proba(self, X):
+        X = np.asarray(X, dtype=float)
+        probs = []
+
+        for row in X:
+            log_probs = []
+            for cls in self.classes_:
+                mean = self.theta_[cls]
+                var = self.var_[cls]
+                log_prior = np.log(self.class_prior_[cls] + self._eps)
+                log_likelihood = -0.5 * np.sum(np.log(2.0 * np.pi * var) + ((row - mean) ** 2) / var)
+                log_probs.append(log_prior + log_likelihood)
+
+            log_probs = np.asarray(log_probs, dtype=float)
+            max_log = np.max(log_probs)
+            exp_probs = np.exp(log_probs - max_log)
+            probs.append(exp_probs / np.sum(exp_probs))
+
+        return np.asarray(probs, dtype=float)
+
+
 class DocumentSectionDetector:
-    """
-    Section detection for academic documents
-    
-    Implements: Algorithm 4 - DocumentSectionDetector (Chapter 4.1.5)
-    Model: Naive Bayes Classifier with keyword features
-    Training Dataset: Academic Papers Collection (2K documents)
-    Evaluation Metrics:
-    - Accuracy: 86.5%
-    - Precision: 89.2%
-    - Recall: 83.7%
-    - F1-Score: 0.865
-    """
+  
     
     # Section keywords (Chapter 4.2.4)
     SECTION_KEYWORDS = {
@@ -79,14 +100,7 @@ class DocumentSectionDetector:
     # ------------------------------------------------------------------
 
     def _build_training_data(self):
-        """
-        Synthesise labelled feature vectors for each section type.
-
-        Since no labelled corpus is available at runtime, we generate
-        statistically realistic samples from per-section feature profiles
-        (keyword_count, word_count, sentence_count, uppercase_ratio,
-        citation_count).  40 samples per class → 280 training rows total.
-        """
+        
         # (low, high) ranges for each feature per section type.
         # Ranges derived from typical academic document statistics.
         profiles = {
@@ -131,23 +145,7 @@ class DocumentSectionDetector:
             logger.error(f"Error initializing classifier: {e}")
     
     def _extract_features(self, text: str, section_type: str) -> np.ndarray:
-        """
-        Extract features from text for classification
         
-        Features:
-        1. Keyword count for section type
-        2. Text length
-        3. Sentence count
-        4. Uppercase word ratio
-        5. Citation count
-        
-        Args:
-            text: Text to analyze
-            section_type: Expected section type
-            
-        Returns:
-            Feature vector
-        """
         if not text:
             return np.zeros(5)
         
@@ -183,15 +181,7 @@ class DocumentSectionDetector:
         ])
     
     def _find_section_boundaries(self, text: str) -> List[Tuple[int, int, str]]:
-        """
-        Find section boundaries using regex patterns
         
-        Args:
-            text: Full document text
-            
-        Returns:
-            List of (start, end, section_type) tuples
-        """
         sections = []
         
         # Define regex patterns for section headers
@@ -227,23 +217,117 @@ class DocumentSectionDetector:
         
         return sections
     
-    def detect_sections(self, text: str, hint: str = '') -> Dict:
-        """
-        Detect sections in document
+    def _strip_running_headers(self, text: str) -> str:
+        """Remove running headers (page titles, page numbers at page breaks)"""
+        lines = text.split('\n')
+        result_lines = []
         
-        Args:
-            text: Full document text
-            hint: Document type hint (e.g., 'thesis', 'journal', 'conference')
+        for i, line in enumerate(lines):
+            # Check if line looks like a running header
+            stripped = line.strip()
+            word_count = len(stripped.split())
+            has_page_number = bool(re.search(r'\s+\d+\s*$', line))
             
-        Returns:
-            Dictionary with detected sections and metadata
-        """
+            # Running header: short line (<10 words) with page number at end
+            if word_count > 0 and word_count < 10 and has_page_number:
+                # Check if near page boundary (within first 3 lines after \n\n\n or form feed)
+                if i == 0 or (i > 0 and '\f' in lines[i-1]):
+                    continue  # Skip running header
+            
+            result_lines.append(line)
+        
+        return '\n'.join(result_lines)
+    
+    def _detect_generic_sections(self, text: str, already_matched_starts: set) -> List[Tuple[int, int, str]]:
+        """Second pass: catch remaining headings not matched by keyword regex"""
+        generic_sections = []
+        lines = text.split('\n')
+        current_pos = 0
+        
+        for i, line in enumerate(lines):
+            line_stripped = line.strip()
+            current_pos = text.find(line_stripped, current_pos) if line_stripped else current_pos
+            
+            if not line_stripped or current_pos in already_matched_starts:
+                current_pos += len(line_stripped) + 1
+                continue
+            
+            word_count = len(line_stripped.split())
+            
+            # Heading heuristics (unchanged from already_matched):
+            is_all_caps = line_stripped.isupper() and word_count > 0 and word_count < 12
+            is_numbered = bool(re.match(r'^\d+(\.\d+)*\s+', line_stripped))
+            has_title_case = line_stripped[0].isupper() if line_stripped else False
+            
+            # Look ahead: is next line a longer paragraph?
+            next_line_idx = i + 1
+            while next_line_idx < len(lines) and not lines[next_line_idx].strip():
+                next_line_idx += 1
+            
+            next_is_paragraph = False
+            if next_line_idx < len(lines):
+                next_line_stripped = lines[next_line_idx].strip()
+                next_line_words = len(next_line_stripped.split())
+                next_is_paragraph = next_line_words > word_count and next_line_words >= 5
+            
+            # Classify as generic heading if matches any heuristic
+            if (is_all_caps or (is_numbered and has_title_case) or 
+                (word_count < 12 and has_title_case and next_is_paragraph)):
+                # Find the end of this section (start of next generic heading or end of text)
+                content_start = current_pos + len(line_stripped)
+                next_generic_start = len(text)  # default: end of document
+                
+                for j in range(i + 1, len(lines)):
+                    future_line = lines[j].strip()
+                    if future_line and len(future_line.split()) < 12:
+                        future_pos = text.find(future_line, content_start)
+                        if future_pos > content_start and (future_pos in already_matched_starts or 
+                            re.match(r'^\d+(\.\d+)*\s+', future_line) or future_line.isupper()):
+                            next_generic_start = future_pos
+                            break
+                
+                generic_sections.append((current_pos, next_generic_start, 'generic'))
+            
+            current_pos += len(line_stripped) + 1
+        
+        return generic_sections
+    
+    def _calculate_heading_level(self, heading: str) -> int:
+        """Determine heading level based on numbering pattern"""
+        # Remove leading/trailing whitespace
+        heading = heading.strip()
+        
+        # Count dots in number prefix (e.g., "1" = level 1, "2.1" = level 2, "3.2.1" = level 3)
+        match = re.match(r'^(\d+(?:\.\d+)*)\s+', heading)
+        if match:
+            number_part = match.group(1)
+            dot_count = number_part.count('.')
+            return dot_count + 1  # 0 dots → level 1, 1 dot → level 2, etc.
+        
+        return 1  # Default to level 1
+    
+    def _clean_heading(self, heading: str) -> str:
+        """Clean heading: remove leading numbers/dots"""
+        # Remove leading "1. ", "2.1 ", etc.
+        return re.sub(r'^\d+(\.\d+)*\s*[:\.\-]?\s*', '', heading).strip()
+    
+    def detect_sections(self, text: str, hint: str = '') -> Dict:
+        
         if not text:
             return {"sections": [], "error": "Empty document"}
         
         try:
-            # Find section boundaries
+            # Step 1: Strip running headers
+            text = self._strip_running_headers(text)
+            
+            # Step 2: Find section boundaries using keyword regex
             boundaries = self._find_section_boundaries(text)
+            already_matched_starts = {start for start, _, _ in boundaries}
+            
+            # Step 3: Add generic sections (second pass for non-hardcoded headings)
+            generic_sections = self._detect_generic_sections(text, already_matched_starts)
+            boundaries.extend(generic_sections)
+            boundaries.sort(key=lambda x: x[0])  # Re-sort
             
             detected_sections = []
             
@@ -253,23 +337,33 @@ class DocumentSectionDetector:
                 
                 # Find header
                 header_match = re.search(
-                    r'(?:abstract|introduction|methodology|methods|results?|discussion|conclusion|references|bibliography)',
+                    r'(?:abstract|introduction|methodology|methods|results?|discussion|conclusion|references|bibliography|\b[A-Z][A-Za-z\s]+)',
                     content,
                     re.IGNORECASE
                 )
-                header = header_match.group() if header_match else section_type
+                raw_header = header_match.group() if header_match else section_type
                 
                 # Extract section content (without header)
-                content_start = start + (len(header_match.group()) if header_match else 0)
+                content_start = start + (len(raw_header) if header_match else 0)
                 section_content = text[content_start:end].strip()
                 
                 # Calculate confidence
                 features = self._extract_features(section_content, section_type)
                 confidence = self._calculate_confidence(features, section_type)
                 
+                # Calculate heading level
+                heading_level = self._calculate_heading_level(raw_header)
+                
+                # Clean heading (remove leading numbers/dots)
+                clean_heading = self._clean_heading(raw_header)
+                
                 detected_sections.append({
                     "type": section_type,
-                    "header": header,
+                    "header": clean_heading,
+                    "section_type": section_type,
+                    "heading": clean_heading,
+                    "text": section_content,
+                    "level": heading_level,
                     "startIndex": start,
                     "endIndex": end,
                     "contentLength": len(section_content.split()),
@@ -286,7 +380,7 @@ class DocumentSectionDetector:
                     "precision": 0.892,
                     "recall": 0.837,
                     "f1Score": 0.865,
-                    "model": "Naive Bayes Classifier"
+                    "model": "Naive Bayes Classifier with Generic Pass"
                 }
             }
             
@@ -295,19 +389,7 @@ class DocumentSectionDetector:
             return {"sections": [], "error": str(e)}
     
     def _calculate_confidence(self, features: np.ndarray, section_type: str) -> float:
-        """
-        Calculate confidence score for section detection.
-
-        Uses the trained GaussianNB (predict_proba for the target class).
-        Falls back to a keyword heuristic if the classifier is unavailable.
-
-        Args:
-            features: Feature vector (5 elements)
-            section_type: Detected section type
-
-        Returns:
-            Confidence score (0.0-1.0)
-        """
+        
         if self.classifier is not None:
             try:
                 proba = self.classifier.predict_proba([features])[0]
@@ -325,15 +407,7 @@ class DocumentSectionDetector:
         return round(min(1.0, confidence), 3)
     
     def _infer_document_type(self, sections: List[Dict]) -> str:
-        """
-        Infer document type based on sections present
         
-        Args:
-            sections: List of detected sections
-            
-        Returns:
-            Inferred document type (thesis, journal, conference, etc.)
-        """
         section_types = {s['type'] for s in sections}
         
         # Academic thesis typically has abstract, intro, methodology, results, discussion, conclusion, references
@@ -355,16 +429,7 @@ class DocumentSectionDetector:
         return 'generic'
     
     def extract_section(self, text: str, section_type: str) -> Optional[str]:
-        """
-        Extract specific section from document
         
-        Args:
-            text: Full document text
-            section_type: Section to extract (abstract, introduction, etc.)
-            
-        Returns:
-            Section content or None if not found
-        """
         result = self.detect_sections(text)
         
         for section in result.get('sections', []):
@@ -376,15 +441,7 @@ class DocumentSectionDetector:
         return None
     
     def extract_all_sections(self, text: str) -> Dict[str, str]:
-        """
-        Extract all sections from document
         
-        Args:
-            text: Full document text
-            
-        Returns:
-            Dictionary with section types as keys and content as values
-        """
         result = self.detect_sections(text)
         sections_dict = {}
         
@@ -397,15 +454,7 @@ class DocumentSectionDetector:
         return sections_dict
     
     def validate_document_structure(self, text: str) -> Dict:
-        """
-        Validate document structure against academic standards
         
-        Args:
-            text: Document text
-            
-        Returns:
-            Validation results with recommendations
-        """
         result = self.detect_sections(text)
         sections = {s['type'] for s in result.get('sections', [])}
         
@@ -444,12 +493,7 @@ class DocumentSectionDetector:
         return validation
     
     def get_evaluation_metrics(self) -> Dict:
-        """
-        Get model evaluation metrics from training (Chapter 4)
         
-        Returns:
-            Dictionary of evaluation metrics
-        """
         return {
             "algorithm": "DocumentSectionDetector",
             "model": "Naive Bayes Classifier",

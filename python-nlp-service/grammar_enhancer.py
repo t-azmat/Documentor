@@ -17,6 +17,12 @@ import os
 import time
 from collections import OrderedDict
 from typing import List, Dict, Tuple, Optional
+
+# Prevent transformers from importing TensorFlow/Keras on startup.
+os.environ.setdefault("USE_TF", "0")
+os.environ.setdefault("TRANSFORMERS_NO_TF", "1")
+os.environ.setdefault("TRANSFORMERS_NO_FLAX", "1")
+
 from transformers import pipeline, AutoTokenizer, AutoModelForSeq2SeqLM
 import logging
 from nltk import sent_tokenize
@@ -48,18 +54,48 @@ class GrammarEnhancer:
     """
 
     # Fine-tuned checkpoint is used when present; falls back to base model.
-    _FINETUNED_DIR = os.path.join(os.path.dirname(__file__), "grammar-finetuned")
+    _SERVICE_DIR = os.path.dirname(__file__)
+    _REPO_ROOT = os.path.abspath(os.path.join(_SERVICE_DIR, os.pardir))
+    _FINETUNED_DIR = os.path.join(_SERVICE_DIR, "grammar-finetuned")
+    _FINETUNED_CANDIDATES = [
+        _FINETUNED_DIR,
+        os.path.join(_REPO_ROOT, "grammar-finetuned"),
+    ]
+    _MODEL_WEIGHT_FILES = ("model.safetensors", "pytorch_model.bin")
+
+    @classmethod
+    def _is_valid_checkpoint(cls, path: str) -> bool:
+        return (
+            path
+            and os.path.isdir(path)
+            and os.path.exists(os.path.join(path, "config.json"))
+            and any(os.path.exists(os.path.join(path, name)) for name in cls._MODEL_WEIGHT_FILES)
+        )
 
     @classmethod
     def _resolve_model_name(cls, override: str = None) -> str:
-        """Return fine-tuned path if it exists, otherwise HuggingFace base model."""
+        """Return a trained checkpoint path if it exists, otherwise HuggingFace base model."""
         if override:
             return override
-        if os.path.isdir(cls._FINETUNED_DIR) and os.path.exists(
-            os.path.join(cls._FINETUNED_DIR, "config.json")
-        ):
-            logger.info("Fine-tuned checkpoint found: %s", cls._FINETUNED_DIR)
-            return cls._FINETUNED_DIR
+
+        candidates = [
+            os.getenv("GRAMMAR_MODEL_PATH"),
+            *cls._FINETUNED_CANDIDATES,
+        ]
+        for candidate in candidates:
+            if not candidate:
+                continue
+            candidate = os.path.abspath(candidate)
+            if cls._is_valid_checkpoint(candidate):
+                logger.info("Trained grammar checkpoint found: %s", candidate)
+                return candidate
+            if os.path.isdir(candidate):
+                logger.warning(
+                    "Grammar checkpoint directory exists but is incomplete: %s",
+                    candidate,
+                )
+
+        logger.warning("No trained grammar checkpoint found; using google/flan-t5-base")
         return "google/flan-t5-base"
 
     # Model configuration (Chapter 4.2.1)
@@ -71,6 +107,11 @@ class GrammarEnhancer:
         'formal':   'Fix grammar and use formal language: ',
         'casual':   'Improve grammar and clarity: ',
     }
+    _PROMPT_ECHO_PATTERN = re.compile(
+        r'\b(?:Improve grammar and clarity|Improve grammar and academic tone|'
+        r'Fix grammar and use formal language)\s*:\s*',
+        re.IGNORECASE,
+    )
     
     def __init__(self, model_name: str = None, use_gpu: bool = True):
         """
@@ -204,6 +245,13 @@ class GrammarEnhancer:
         overlap = len(original_words & enhanced_words) / len(original_words | enhanced_words)
         # Map overlap to confidence: high overlap = high confidence in subtle changes
         return max(0.5, min(1.0, overlap))
+
+    def _clean_generated_text(self, generated_text: str, original_text: str) -> str:
+        """Remove instruction echoes that seq2seq models sometimes emit."""
+        cleaned = (generated_text or "").strip()
+        cleaned = self._PROMPT_ECHO_PATTERN.sub("", cleaned).strip()
+        cleaned = re.sub(r'\s+', ' ', cleaned).strip()
+        return cleaned or original_text
     
     def split_into_sentences(self, text: str) -> List[str]:
         """
@@ -230,14 +278,14 @@ class GrammarEnhancer:
         sentences = [s.strip() for s in sentences if s.strip()]
         return sentences
     
-    def enhance_text_with_model(self, text: str, mode: str = 'balanced', max_length: int = 256) -> Tuple[Optional[str], float]:
+    def enhance_text_with_model(self, text: str, mode: str = 'balanced', max_new_tokens: int = 256) -> Tuple[Optional[str], float]:
         """
         Enhance text using the T5 transformer model
         
         Args:
             text: Input text to enhance
             mode: Enhancement mode (balanced, academic, formal, casual)
-            max_length: Maximum length of enhanced text
+            max_new_tokens: Maximum number of tokens to generate
             
         Returns:
             Tuple of (enhanced_text, confidence_score)
@@ -262,13 +310,16 @@ class GrammarEnhancer:
             # Generate enhancement
             result = self.pipeline(
                 input_text,
-                max_length=max_length,
+                max_new_tokens=max_new_tokens,
                 do_sample=False,
                 num_return_sequences=1
             )
             
             if result and len(result) > 0:
-                enhanced = result[0].get('generated_text', text).strip()
+                enhanced = self._clean_generated_text(
+                    result[0].get('generated_text', text),
+                    text,
+                )
                 confidence = self._calculate_confidence(text, enhanced)
 
                 # LRU insert: move to end (most-recently-used position)
@@ -432,7 +483,8 @@ class GrammarEnhancer:
                 }
             }
     
-    def apply_basic_enhancements(self, text: str) -> Dict:
+    @staticmethod
+    def apply_basic_enhancements(text: str) -> Dict:
         """
         Apply basic grammar enhancements without model (fallback)
         Uses regex-based rules for common mistakes

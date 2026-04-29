@@ -1,4 +1,5 @@
 import axios from 'axios'
+import FormData from 'form-data'
 
 const PYTHON_NLP_URL = process.env.PYTHON_NLP_URL || 'http://localhost:5001'
 
@@ -12,7 +13,6 @@ export const extractCitations = async (req, res) => {
       return res.status(400).json({ message: 'No file uploaded' })
     }
 
-    const FormData = require('form-data')
     const formData = new FormData()
     formData.append('file', req.file.buffer, {
       filename: req.file.originalname,

@@ -10,16 +10,45 @@ import AIDetector from '../AIDetector/AIDetector'
 import CitationManager from '../CitationManager/CitationManager'
 import FormatDocument from '../FormatDocument/FormatDocument'
 import SectionDetector from '../NLPAnalysis/SectionDetector'
+import DocumentRenderer from '../DocumentRenderer/DocumentRenderer'
+import { documentAPI } from '../../services/documentService'
 
 const DocumentWorkspace = ({ document, onClose, onDocumentUpdate }) => {
   const [viewMode, setViewMode] = useState('view') // 'view' or 'edit'
   const [activeTool, setActiveTool] = useState(null) // which tool modal is open
   const [editedContent, setEditedContent] = useState(document.content?.raw || '')
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false)
+  const [fullDocument, setFullDocument] = useState(document)
+  const [isLoadingDocument, setIsLoadingDocument] = useState(false)
+
+  const documentId = document?._id
 
   useEffect(() => {
-    setEditedContent(document.content?.raw || '')
-  }, [document])
+    setEditedContent(document?.content?.raw || '')
+    if (documentId) {
+      fetchFullDocument(documentId)
+    } else if (document) {
+      setFullDocument(document)
+    }
+  }, [documentId])
+
+  const fetchFullDocument = async (docId) => {
+    try {
+      if (!docId) {
+        console.warn('[DocumentWorkspace] No document ID available')
+        setFullDocument(document)
+        return
+      }
+      setIsLoadingDocument(true)
+      const response = await documentAPI.getOne(docId)
+      setFullDocument(response.data.document)
+    } catch (error) {
+      console.error('Failed to fetch full document:', error)
+      setFullDocument(document)
+    } finally {
+      setIsLoadingDocument(false)
+    }
+  }
 
   const handleContentChange = (e) => {
     setEditedContent(e.target.value)
@@ -28,6 +57,9 @@ const DocumentWorkspace = ({ document, onClose, onDocumentUpdate }) => {
 
   const handleSaveChanges = async () => {
     try {
+      if (!document?._id) {
+        throw new Error('Cannot save: document ID is missing')
+      }
       await onDocumentUpdate(document._id, { 'content.raw': editedContent })
       setHasUnsavedChanges(false)
       setViewMode('view')
@@ -64,7 +96,7 @@ const DocumentWorkspace = ({ document, onClose, onDocumentUpdate }) => {
       setViewMode('edit')
     }
     // Notify parent to refresh document list
-    if (onDocumentUpdate) {
+    if (onDocumentUpdate && document?._id) {
       try {
         await onDocumentUpdate(document._id, { 'content.formatted': updatedDoc.content?.formatted })
       } catch (error) {
@@ -95,9 +127,9 @@ const DocumentWorkspace = ({ document, onClose, onDocumentUpdate }) => {
             <div className="flex items-center gap-3">
               <FaFileAlt className="text-2xl" />
               <div>
-                <h2 className="text-xl font-bold">{document.title}</h2>
+                <h2 className="text-xl font-bold">{document.title || 'Untitled'}</h2>
                 <p className="text-sm text-blue-100">
-                  {document.fileType.toUpperCase()} • {(document.fileSize / 1024).toFixed(1)} KB
+                  {(document.fileType || 'file').toUpperCase()} • {((document.fileSize || 0) / 1024).toFixed(1)} KB
                   {hasUnsavedChanges && ' • Unsaved changes'}
                 </p>
               </div>
@@ -187,9 +219,11 @@ const DocumentWorkspace = ({ document, onClose, onDocumentUpdate }) => {
           ) : (
             <div className="bg-white p-8 rounded-lg border border-gray-200 min-h-[500px]">
               <div className="prose max-w-none">
-                <pre className="whitespace-pre-wrap font-sans text-gray-800 leading-relaxed">
-                  {editedContent || 'No content available'}
-                </pre>
+                {isLoadingDocument ? (
+                  <div className="text-center py-8 text-gray-500">Loading document...</div>
+                ) : (
+                  <DocumentRenderer document={fullDocument} />
+                )}
               </div>
             </div>
           )}
@@ -198,7 +232,7 @@ const DocumentWorkspace = ({ document, onClose, onDocumentUpdate }) => {
       </div>
 
       {/* Tool Modals */}
-      {activeTool === 'grammar' && (
+      {activeTool === 'grammar' && document?._id && (
         <GrammarChecker
           text={editedContent}
           documentId={document._id}

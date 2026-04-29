@@ -4,14 +4,19 @@ import multer from 'multer'
 import path from 'path'
 import fs from 'fs'
 import { fileURLToPath } from 'url'
-import { extractTextFromFile, calculateMetadata } from '../services/fileExtractorService.js'
-import nlpService from '../services/nlpService.js'
+import { extractTextFromFile, calculateMetadata, cleanupDocumentMediaDirectory } from '../services/fileExtractorService.js'
+import axios from 'axios'
 import mammoth from 'mammoth'
+import FormattingJob from '../models/FormattingJob.js'
+import { cleanupFormattingJobArtifacts } from '../services/formattingJobQueue.js'
+
+const PYTHON_NLP_URL = process.env.PYTHON_NLP_URL || 'http://localhost:5001'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
 
 // Configure multer for file upload
+import crypto from 'crypto'
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
     const uploadDir = path.join(__dirname, '../../uploads')
@@ -21,19 +26,26 @@ const storage = multer.diskStorage({
     cb(null, uploadDir)
   },
   filename: (req, file, cb) => {
-    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9)
-    cb(null, uniqueSuffix + path.extname(file.originalname))
+    const uniqueSuffix = crypto.randomBytes(16).toString('hex')
+    cb(null, uniqueSuffix + '.tmp')
   }
 })
 
 const fileFilter = (req, file, cb) => {
-  const allowedTypes = ['.docx', '.pdf', '.txt', '.tex', '.latex']
+  const allowedMimeTypes = [
+    'application/pdf',
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    'text/plain',
+    'application/x-tex',
+    'application/x-latex'
+  ]
+  const allowedExts = ['.docx', '.pdf', '.txt', '.tex', '.latex']
   const ext = path.extname(file.originalname).toLowerCase()
   
-  if (allowedTypes.includes(ext)) {
+  if (allowedMimeTypes.includes(file.mimetype) && allowedExts.includes(ext)) {
     cb(null, true)
   } else {
-    cb(new Error('Invalid file type. Only PDF, DOCX, TXT, and LaTeX files are allowed.'))
+    cb(new Error('Invalid file type. Signature check failed.'))
   }
 }
 
@@ -51,6 +63,7 @@ export const upload = multer({
 export const uploadDocument = async (req, res, next) => {
   try {
     if (!req.file) {
+      console.error('No file in request')
       return res.status(400).json({
         status: 'error',
         message: 'Please upload a file'
@@ -58,62 +71,91 @@ export const uploadDocument = async (req, res, next) => {
     }
 
     const { title, projectId, formattingStyle } = req.body
+    console.log('Upload request:', { title, projectId, formattingStyle, filename: req.file.originalname })
+
     const user = await User.findById(req.user.id)
+    if (!user) {
+      console.error('User not found:', req.user.id)
+      return res.status(401).json({
+        status: 'error',
+        message: 'User not found'
+      })
+    }
 
     const fileExt = path.extname(req.file.originalname).toLowerCase().replace('.', '')
+    console.log('File extension:', fileExt)
     
-    // Extract text content from file
-    const rawContent = await extractTextFromFile(req.file.path, fileExt)
-    const metadata = calculateMetadata(rawContent)
-    
-    const documentData = {
+    // ✅ Create document first to get ID for media storage
+    let document = new Document({
       userId: req.user.id,
-      title: title || req.file.originalname,
+      title: title || req.file.originalname.replace(/\.[^/.]+$/, ''),
       originalFileName: req.file.originalname,
       fileType: fileExt,
       fileSize: req.file.size,
       filePath: req.file.path,
       projectId: projectId || null,
-      content: {
-        raw: rawContent,
-        formatted: rawContent
-      },
+      status: 'processing',
       metadata: {
-        wordCount: metadata.wordCount,
-        pageCount: metadata.pageCount
+        uploadedAt: new Date(),
+        requestedStyle: formattingStyle || 'APA'
+      },
+      content: {
+        raw: '',
+        formatted: ''
       }
-    }
+    })
 
-    // Only add formatting if provided
-    if (formattingStyle) {
-      documentData.formatting = {
-        style: formattingStyle
-      }
-    }
+    await document.save()
+    console.log('Document created:', document._id)
+
+    // ✅ Extract with document ID for media organization
+    console.log('Starting file extraction...')
+    const extraction = await extractTextFromFile(req.file.path, fileExt, document._id)
+    console.log('Extraction complete:', { 
+      words: extraction.wordCount, 
+      method: extraction.extractionMethod,
+      blocks: extraction.blocks?.length || 0,
+      headings: extraction.headingInfo,
+      toc: extraction.toc?.length || 0,
+      media: extraction.mediaFiles?.length || 0 
+    })
     
-    const document = await Document.create(documentData)
-
-    // Process with NLP in background (don't wait for it)
-    if (rawContent && rawContent.length > 50) {
-      nlpService.processDocument(rawContent, metadata)
-        .then(nlpResults => {
-          document.nlp = {
-            processed: true,
-            processedAt: new Date(),
-            entities: nlpResults.entities,
-            keywords: nlpResults.keywords,
-            summary: nlpResults.summary,
-            sentiment: nlpResults.sentiment,
-            classification: nlpResults.classification,
-          }
-          document.metadata = {
-            ...document.metadata,
-            ...nlpResults.metadata,
-          }
-          return document.save()
-        })
-        .catch(err => console.error('Background NLP processing error:', err.message))
+    // ✅ Store extraction results with structure preservation
+    document.content = {
+      raw: extraction.text,
+      formatted: extraction.text,
+      structure: extraction.elements || [],
+      mediaReferences: extraction.mediaFiles || [],
+      structuredBlocks: extraction.blocks || null,  // ✅ Store for intelligent formatting
+      tableOfContents: extraction.toc || [],  // ✅ Store TOC
+      docling: extraction.docling || null
     }
+
+    // ✅ Update metadata with heading information
+    const metadata = calculateMetadata(extraction)
+    document.metadata = {
+      ...document.metadata,
+      ...metadata,
+      extractionMethod: extraction.extractionMethod,
+      extractionBackend: extraction.extractionBackend,
+      headingStats: extraction.headingInfo || {},
+      lastProcessedAt: new Date()
+    }
+
+    // ✅ Store media info
+    if (extraction.mediaFiles && extraction.mediaFiles.length > 0) {
+      document.media = {
+        storagePath: `uploads/doc-${document._id}/`,
+        files: extraction.mediaFiles.map(f => f.relativePath)
+      }
+    }
+
+    document.status = 'uploaded'  // Set to 'uploaded' instead of 'processing' - NLP is now on-demand
+    await document.save()
+
+    // ✅ NLP processing is now on-demand via /api/nlp endpoints
+    // Document is ready to view immediately after extraction
+    // Users can run NLP analysis separately when needed
 
     // Update user usage
     user.usage.documentsProcessed += 1
@@ -123,10 +165,138 @@ export const uploadDocument = async (req, res, next) => {
 
     res.status(201).json({
       status: 'success',
-      document
+      document: {
+        _id: document._id,
+        id: document._id,
+        title: document.title,
+        status: document.status,
+        fileType: document.fileType,
+        fileSize: document.fileSize,
+        originalFileName: document.originalFileName,
+        createdAt: document.createdAt,
+        metadata: document.metadata,
+        extractionMethod: document.metadata?.extractionMethod,
+        headingStats: document.metadata?.headingStats,
+        hasStructure: !!extraction.blocks,
+        tocLength: extraction.toc?.length || 0
+      }
     })
   } catch (error) {
-    next(error)
+    console.error('=== UPLOAD ERROR ===')
+    console.error('Error type:', error.constructor.name)
+    console.error('Error message:', error.message)
+    console.error('Error stack:', error.stack)
+
+    return res.status(500).json({
+      status: 'error',
+      message: error.message || 'Upload failed',
+      details: process.env.NODE_ENV === 'development' ? error.stack : undefined
+    })
+  }
+}
+
+// @desc    Apply AI formatting to document content
+// @route   POST /api/documents/:id/ai-format
+// @access  Private
+export const aiFormatDocument = async (req, res, next) => {
+  try {
+    const { formattingStyle = 'APA' } = req.body
+
+    const document = await Document.findById(req.params.id)
+    if (!document) {
+      return res.status(404).json({
+        status: 'error',
+        message: 'Document not found'
+      })
+    }
+
+    if (document.userId.toString() !== req.user.id) {
+      return res.status(403).json({
+        status: 'error',
+        message: 'Not authorized to format this document'
+      })
+    }
+
+    console.log(`[AI-Format] Starting AI formatting for doc ${document._id}`)
+
+    // Prepare data for Python AI formatter
+    const structuredBlocks = document.content?.structuredBlocks
+    const rawText = document.content?.raw || ''
+    
+    if (!structuredBlocks && !rawText) {
+      return res.status(400).json({
+        status: 'error',
+        message: 'Document has no content to format'
+      })
+    }
+
+    const requestBody = {
+      text: rawText,
+      structured_blocks: structuredBlocks || [],
+      table_of_contents: document.content?.tableOfContents || [],
+      target_style: formattingStyle,
+      title: document.title,
+      authors: [],
+      generate_latex: true
+    }
+
+    if (structuredBlocks) {
+      console.log(`[AI-Format] Using ${structuredBlocks.length} structured blocks for AI formatting`)
+    } else {
+      console.log(`[AI-Format] Using plain text for AI formatting`)
+    }
+
+    // Call Python AI formatter
+    const response = await axios.post(
+      `${PYTHON_NLP_URL}/api/formatting/ai-format`,
+      requestBody,
+      {
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        timeout: 180000  // 3 minutes for AI formatting
+      }
+    )
+
+    if (!response.data.success) {
+      console.error(`[AI-Format] Formatting failed:`, response.data.error)
+      return res.status(400).json({
+        status: 'error',
+        message: 'AI formatting failed: ' + response.data.error
+      })
+    }
+
+    console.log(`[AI-Format] Formatting complete - ${response.data.plain_sections?.length || 0} sections`)
+
+    // Store formatted content
+    document.content.formatted = response.data.plain_sections
+      .map(s => `${'#'.repeat(s.section_level || 1)} ${s.heading}\n\n${s.text}`)
+      .join('\n\n')
+    
+    document.metadata.lastFormattedAt = new Date()
+    document.metadata.formattingStyle = formattingStyle
+    document.metadata.formattingStats = response.data.citation_stats || {}
+    
+    await document.save()
+
+    return res.status(200).json({
+      status: 'success',
+      message: 'Document AI formatted successfully',
+      document: {
+        _id: document._id,
+        title: document.title,
+        formattingStyle: formattingStyle,
+        sectionsCount: response.data.plain_sections?.length || 0,
+        citationStats: response.data.citation_stats,
+        hasLatex: !!response.data.latex
+      }
+    })
+  } catch (error) {
+    console.error('[AI-Format] Error:', error.message)
+    return res.status(500).json({
+      status: 'error',
+      message: 'AI formatting error: ' + error.message
+    })
   }
 }
 
@@ -168,8 +338,18 @@ export const getDocuments = async (req, res, next) => {
 // @access  Private
 export const getDocument = async (req, res, next) => {
   try {
+    const { id } = req.params
+    
+    // Validate ID
+    if (!id || id === 'undefined') {
+      return res.status(400).json({
+        status: 'error',
+        message: 'Document ID is required'
+      })
+    }
+
     const document = await Document.findOne({
-      _id: req.params.id,
+      _id: id,
       userId: req.user.id
     }).populate('projectId', 'name color')
 
@@ -194,8 +374,18 @@ export const getDocument = async (req, res, next) => {
 // @access  Private
 export const updateDocument = async (req, res, next) => {
   try {
+    const { id } = req.params
+    
+    // Validate ID
+    if (!id || id === 'undefined') {
+      return res.status(400).json({
+        status: 'error',
+        message: 'Document ID is required'
+      })
+    }
+
     const document = await Document.findOne({
-      _id: req.params.id,
+      _id: id,
       userId: req.user.id
     })
 
@@ -244,8 +434,19 @@ export const updateDocument = async (req, res, next) => {
 // @access  Private
 export const deleteDocument = async (req, res, next) => {
   try {
+    const { id } = req.params
+    const cleanupWarnings = []
+
+    // Validate ID
+    if (!id || id === 'undefined') {
+      return res.status(400).json({
+        status: 'error',
+        message: 'Document ID is required and must be a valid MongoDB ID'
+      })
+    }
+
     const document = await Document.findOne({
-      _id: req.params.id,
+      _id: id,
       userId: req.user.id
     })
 
@@ -257,20 +458,59 @@ export const deleteDocument = async (req, res, next) => {
     }
 
     // Delete file from filesystem
-    if (fs.existsSync(document.filePath)) {
-      fs.unlinkSync(document.filePath)
+    try {
+      if (document.filePath && fs.existsSync(document.filePath)) {
+        fs.unlinkSync(document.filePath)
+      }
+    } catch (error) {
+      cleanupWarnings.push(`Failed to remove source file: ${error.message}`)
+    }
+
+    // Best-effort cleanup for extracted media directory
+    if (document.media?.storagePath) {
+      const mediaCleanup = cleanupDocumentMediaDirectory(document.media.storagePath)
+      if (!mediaCleanup.removed && mediaCleanup.reason !== 'Media directory does not exist') {
+        cleanupWarnings.push(`Media cleanup warning: ${mediaCleanup.reason}`)
+      }
+    }
+
+    // Best-effort cleanup for transient formatting job artifacts
+    const relatedJobs = await FormattingJob.find({
+      documentId: document._id,
+      userId: req.user.id
+    })
+
+    for (const job of relatedJobs) {
+      const artifactCleanup = await cleanupFormattingJobArtifacts(job)
+      if (artifactCleanup.warnings?.length > 0) {
+        cleanupWarnings.push(...artifactCleanup.warnings)
+      }
+    }
+
+    try {
+      await FormattingJob.deleteMany({
+        documentId: document._id,
+        userId: req.user.id
+      })
+    } catch (error) {
+      cleanupWarnings.push(`Failed to remove formatting jobs: ${error.message}`)
     }
 
     // Update user storage
     const user = await User.findById(req.user.id)
-    user.usage.storageUsed -= document.fileSize
-    await user.save()
+    if (user) {
+      user.usage.storageUsed = Math.max(0, (user.usage.storageUsed || 0) - (document.fileSize || 0))
+      await user.save()
+    }
 
     await document.deleteOne()
 
     res.status(200).json({
       status: 'success',
-      message: 'Document deleted successfully'
+      message: 'Document deleted successfully',
+      cleanup: {
+        warnings: cleanupWarnings
+      }
     })
   } catch (error) {
     next(error)
@@ -306,6 +546,13 @@ export const getDocumentStats = async (req, res, next) => {
 // @access  Private (token in query)
 export const viewDocument = async (req, res, next) => {
   try {
+    const { id } = req.params
+    
+    // Validate ID
+    if (!id || id === 'undefined') {
+      return res.status(400).send('Document ID is required')
+    }
+
     // Get token from query parameter
     const token = req.query.token || req.headers.authorization?.replace('Bearer ', '')
     
@@ -323,7 +570,7 @@ export const viewDocument = async (req, res, next) => {
     }
 
     const document = await Document.findOne({
-      _id: req.params.id,
+      _id: id,
       userId: decoded.id
     })
 
@@ -409,8 +656,18 @@ export const viewDocument = async (req, res, next) => {
 // @access  Private
 export const downloadDocument = async (req, res, next) => {
   try {
+    const { id } = req.params
+    
+    // Validate ID
+    if (!id || id === 'undefined') {
+      return res.status(400).json({
+        status: 'error',
+        message: 'Document ID is required'
+      })
+    }
+
     const document = await Document.findOne({
-      _id: req.params.id,
+      _id: id,
       userId: req.user.id
     })
 
@@ -434,13 +691,114 @@ export const downloadDocument = async (req, res, next) => {
   }
 }
 
+// ✅ NEW: Download document as formatted Word with media
+// @desc    Download document as Word format with media
+// @route   GET /api/documents/:id/export/word
+// @access  Private
+export const downloadAsWord = async (req, res, next) => {
+  try {
+    const { id } = req.params
+    
+    // Validate ID
+    if (!id || id === 'undefined') {
+      return res.status(400).json({
+        status: 'error',
+        message: 'Document ID is required'
+      })
+    }
+
+    const document = await Document.findOne({
+      _id: id,
+      userId: req.user.id
+    })
+
+    if (!document) {
+      return res.status(404).json({ status: 'error', message: 'Document not found' })
+    }
+
+    // Use formatted content with structure and media references
+    const content = document.content.formatted || document.content.raw
+    
+    // For now, return as text with placeholders for media
+    // In production, use library to generate proper Word document
+    const wordContent = `
+${document.title}
+
+${content}
+
+${document.content.mediaReferences ? '\n--- Media Files ---\n' + 
+  document.content.mediaReferences.map((m, i) => `[${i+1}] ${m.caption}: ${m.filename}`).join('\n') 
+  : ''}`
+
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document')
+    res.setHeader('Content-Disposition', `attachment; filename="${document.title}.docx"`)
+    res.send(wordContent)
+  } catch (error) {
+    next(error)
+  }
+}
+
+// ✅ NEW: Download document as formatted PDF with media
+// @desc    Download document as PDF format with media
+// @route   GET /api/documents/:id/export/pdf
+// @access  Private
+export const downloadAsPdf = async (req, res, next) => {
+  try {
+    const { id } = req.params
+    
+    // Validate ID
+    if (!id || id === 'undefined') {
+      return res.status(400).json({
+        status: 'error',
+        message: 'Document ID is required'
+      })
+    }
+
+    const document = await Document.findOne({
+      _id: id,
+      userId: req.user.id
+    })
+
+    if (!document) {
+      return res.status(404).json({ status: 'error', message: 'Document not found' })
+    }
+
+    // For now, return formatted content
+    // In production, use library to generate proper PDF with embedded media
+    const pdfContent = `
+${document.title}
+
+${document.content.formatted || document.content.raw}
+
+${document.content.mediaReferences ? 'Media: ' + 
+  document.content.mediaReferences.map(m => m.caption).join(', ')
+  : ''}`
+
+    res.setHeader('Content-Type', 'application/pdf')
+    res.setHeader('Content-Disposition', `attachment; filename="${document.title}.pdf"`)
+    res.send(pdfContent)
+  } catch (error) {
+    next(error)
+  }
+}
+
 // @desc    Extract content from document
 // @route   GET /api/documents/:id/extract
 // @access  Private
 export const extractContent = async (req, res, next) => {
   try {
+    const { id } = req.params
+    
+    // Validate ID
+    if (!id || id === 'undefined') {
+      return res.status(400).json({
+        status: 'error',
+        message: 'Document ID is required'
+      })
+    }
+
     const document = await Document.findOne({
-      _id: req.params.id,
+      _id: id,
       userId: req.user.id
     })
 

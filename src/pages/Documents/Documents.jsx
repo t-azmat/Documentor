@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import React, { useState, useEffect } from 'react'
 import { FaUpload, FaFileAlt, FaTrash, FaDownload, FaFilter, FaSearch, FaFolderOpen, FaEdit } from 'react-icons/fa'
 import { documentAPI } from '../../services/documentService'
 import UploadDocument from '../../components/UploadDocument/UploadDocument'
@@ -105,7 +105,7 @@ const Documents = () => {
       const url = window.URL.createObjectURL(blob)
       const a = document.createElement('a')
       a.href = url
-      a.download = `${doc.title}.${doc.fileType}`
+      a.download = `${doc.title || 'document'}.${doc.fileType || 'file'}`
       document.body.appendChild(a)
       a.click()
       window.URL.revokeObjectURL(url)
@@ -116,7 +116,7 @@ const Documents = () => {
   }
 
   const filteredDocuments = documents.filter((doc) =>
-    doc.title.toLowerCase().includes(searchQuery.toLowerCase())
+    (doc.title || '').toLowerCase().includes(searchQuery.toLowerCase())
   )
 
   const getStatusColor = (status) => {
@@ -290,30 +290,30 @@ const Documents = () => {
             >
               <div className="flex items-start justify-between">
                 <div className="flex items-start gap-4 flex-1">
-                  <div className="text-4xl">{getFileIcon(doc.fileType)}</div>
+                  <div className="text-4xl">{getFileIcon((doc.fileType || '').toLowerCase())}</div>
                   <div className="flex-1 min-w-0">
                     <h3 className="text-lg font-semibold text-gray-900 mb-1">
-                      {doc.title}
+                      {doc.title || 'Untitled Document'}
                     </h3>
                     <div className="flex flex-wrap items-center gap-2 text-sm text-gray-600">
                       <span className="flex items-center gap-1">
-                        📄 {doc.fileType.toUpperCase()}
+                        📄 {(doc.fileType || 'unknown').toUpperCase()}
                       </span>
                       <span>•</span>
-                      <span>{formatFileSize(doc.fileSize)}</span>
+                      <span>{formatFileSize(doc.fileSize || 0)}</span>
                       <span>•</span>
                       <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(doc.status)}`}>
-                        {doc.status}
+                        {doc.status || 'unknown'}
                       </span>
                       {doc.formatting?.style && (
-                        <>
+                        <div key={`format-${doc._id}`} className="flex items-center gap-2">
                           <span>•</span>
                           <span>📝 {doc.formatting.style}</span>
-                        </>
+                        </div>
                       )}
                     </div>
                     <p className="text-sm text-gray-500 mt-2">
-                      Uploaded {new Date(doc.createdAt).toLocaleDateString()}
+                      Uploaded {doc.createdAt ? new Date(doc.createdAt).toLocaleDateString() : 'Unknown date'}
                     </p>
                   </div>
                 </div>

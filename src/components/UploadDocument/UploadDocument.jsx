@@ -6,6 +6,7 @@ const UploadDocument = ({ onClose, onUploadSuccess }) => {
   const [file, setFile] = useState(null)
   const [title, setTitle] = useState('')
   const [projectId, setProjectId] = useState('')
+  const [formattingStyle, setFormattingStyle] = useState('APA')
   const [projects, setProjects] = useState([])
   const [uploading, setUploading] = useState(false)
   const [uploadProgress, setUploadProgress] = useState(0)
@@ -88,30 +89,29 @@ const UploadDocument = ({ onClose, onUploadSuccess }) => {
       return
     }
 
+    if (!title || title.trim() === '') {
+      setError('Please enter a document title')
+      return
+    }
+
     setUploading(true)
     setError('')
     setUploadProgress(0)
 
     const formData = new FormData()
     formData.append('file', file)
-    formData.append('title', title)
+    formData.append('title', title.trim())
+    formData.append('formattingStyle', formattingStyle)
     if (projectId) formData.append('projectId', projectId)
 
     try {
-      // Simulate upload progress
-      const progressInterval = setInterval(() => {
-        setUploadProgress(prev => {
-          if (prev >= 90) {
-            clearInterval(progressInterval)
-            return prev
-          }
-          return prev + 10
-        })
-      }, 200)
-
-      const response = await documentAPI.upload(formData)
+      const response = await documentAPI.upload(formData, {
+        onUploadProgress: (progressEvent) => {
+          const progress = Math.round((progressEvent.loaded * 100) / progressEvent.total)
+          setUploadProgress(progress)
+        }
+      })
       
-      clearInterval(progressInterval)
       setUploadProgress(100)
       setSuccess(true)
 
@@ -120,7 +120,24 @@ const UploadDocument = ({ onClose, onUploadSuccess }) => {
         onClose()
       }, 1500)
     } catch (err) {
-      setError(err.response?.data?.message || 'Upload failed. Please try again.')
+      console.error('Full error object:', err)
+      console.error('Response:', err.response)
+      console.error('Request:', err.request)
+      console.error('Error message:', err.message)
+      
+      const errorResponse = err.response?.data || {}
+      console.error('Upload error details:', {
+        status: err.response?.status,
+        statusText: err.response?.statusText,
+        message: errorResponse.message,
+        error: errorResponse.error,
+        details: errorResponse.details,
+        fullError: errorResponse,
+        errorMessage: err.message
+      })
+      
+      const errorMsg = errorResponse.message || errorResponse.error || err.message || 'Upload failed. Please try again.'
+      setError(errorMsg)
     } finally {
       setUploading(false)
     }
@@ -254,6 +271,39 @@ const UploadDocument = ({ onClose, onUploadSuccess }) => {
               ))}
             </select>
           </div>
+
+          {/* Citation Style Selection */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Citation Style
+            </label>
+            <select
+              value={formattingStyle}
+              onChange={(e) => setFormattingStyle(e.target.value)}
+              className="input-field"
+            >
+              <option value="APA">APA</option>
+              <option value="MLA">MLA</option>
+              <option value="IEEE">IEEE</option>
+              <option value="Chicago">Chicago</option>
+              <option value="Harvard">Harvard</option>
+            </select>
+            <p className="text-xs text-gray-500 mt-1">
+              This style will be applied when formatting your document
+            </p>
+          </div>
+
+          {/* File Info Display */}
+          {file && (
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+              <h4 className="font-medium text-blue-900 mb-2">Document Info</h4>
+              <div className="space-y-1 text-sm text-blue-800">
+                <p><strong>File:</strong> {file.name}</p>
+                <p><strong>Size:</strong> {(file.size / 1024 / 1024).toFixed(2)} MB</p>
+                <p><strong>Note:</strong> Document structure and media will be analyzed during upload</p>
+              </div>
+            </div>
+          )}
 
           {/* Upload Progress */}
           {uploading && (

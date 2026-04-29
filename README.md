@@ -88,12 +88,6 @@ An intelligent document formatting assistant that uses AI to format research pap
 
 ## 📦 Quick Start
 
-### Easy Start (Recommended)
-```powershell
-.\start.ps1
-```
-This starts both frontend and backend in separate windows.
-
 ### Manual Setup
 
 **Frontend:**
@@ -109,12 +103,20 @@ npm install
 npm run dev
 ```
 
-See [QUICKSTART.md](QUICKSTART.md) for detailed setup or [SETUP.md](SETUP.md) for complete instructions.
+**Python NLP service:**
+```powershell
+cd python-nlp-service
+pip install -r requirements.txt
+python app.py
+```
+
+See [DEPLOYMENT.md](DEPLOYMENT.md) for production setup.
 
 ## 🌐 Access Points
 
-- **Frontend:** http://localhost:3000
+- **Frontend:** http://localhost:5173
 - **Backend API:** http://localhost:5000
+- **Python NLP Service:** http://localhost:5001
 - **API Health Check:** http://localhost:5000/api/health
 
 ## 📁 Project Structure

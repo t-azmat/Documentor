@@ -1,6 +1,8 @@
 import mongoose from 'mongoose'
 import bcrypt from 'bcryptjs'
 
+const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+
 const userSchema = new mongoose.Schema({
   name: {
     type: String,
@@ -13,7 +15,7 @@ const userSchema = new mongoose.Schema({
     unique: true,
     lowercase: true,
     trim: true,
-    match: [/^\w+([.-]?\w+)*@\w+([.-]?\w+)*(\.\w{2,3})+$/, 'Please provide a valid email']
+    match: [emailPattern, 'Please provide a valid email']
   },
   password: {
     type: String,
@@ -34,9 +36,23 @@ const userSchema = new mongoose.Schema({
     type: String,
     default: null
   },
+  role: {
+    type: String,
+    enum: ['admin', 'editor', 'user'],
+    default: 'user'
+  },
+  status: {
+    type: String,
+    enum: ['active', 'inactive', 'suspended'],
+    default: 'active'
+  },
   emailVerified: {
     type: Boolean,
     default: false
+  },
+  lastLogin: {
+    type: Date,
+    default: null
   },
   subscription: {
     plan: {
