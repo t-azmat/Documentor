@@ -584,84 +584,9 @@ body {
   }
 }
 
-.sidebar-animated-bg {
-  position: relative;
-  isolation: isolate;
-}
-
-.sidebar-animated-bg > * {
-  position: relative;
-  z-index: 1;
-}
-
-.sidebar-animated-bg::before,
-.sidebar-animated-bg::after {
-  content: "";
-  position: absolute;
-  pointer-events: none;
-  z-index: 0;
-}
-
-.sidebar-animated-bg::before {
-  inset: -25% -45% auto -45%;
-  height: 56%;
-  background:
-    radial-gradient(circle at 18% 32%, rgba(139, 92, 246, 0.26), transparent 34%),
-    radial-gradient(circle at 76% 16%, rgba(56, 189, 248, 0.14), transparent 28%),
-    linear-gradient(135deg, rgba(139, 92, 246, 0.1), transparent 58%);
-  filter: blur(18px);
-  opacity: 0.82;
-  animation: sidebarGlowDrift 16s ease-in-out infinite alternate;
-}
-
-.sidebar-animated-bg::after {
-  inset: auto -35% -18% -35%;
-  height: 42%;
-  background:
-    radial-gradient(circle at 42% 40%, rgba(124, 58, 237, 0.18), transparent 36%),
-    radial-gradient(circle at 74% 68%, rgba(167, 139, 250, 0.12), transparent 30%);
-  filter: blur(24px);
-  opacity: 0.7;
-  animation: sidebarLowSweep 20s ease-in-out infinite alternate;
-}
-
-.documentor-shell[data-theme="light"] .sidebar-animated-bg::before {
-  background:
-    radial-gradient(circle at 18% 32%, rgba(124, 58, 237, 0.14), transparent 34%),
-    radial-gradient(circle at 76% 16%, rgba(14, 165, 233, 0.1), transparent 28%),
-    linear-gradient(135deg, rgba(139, 92, 246, 0.08), transparent 58%);
-  opacity: 0.9;
-}
-
-.documentor-shell[data-theme="light"] .sidebar-animated-bg::after {
-  background:
-    radial-gradient(circle at 42% 40%, rgba(124, 58, 237, 0.1), transparent 36%),
-    radial-gradient(circle at 74% 68%, rgba(167, 139, 250, 0.1), transparent 30%);
-}
-
-@keyframes sidebarGlowDrift {
-  0% {
-    transform: translate3d(-4%, -2%, 0) scale(1);
-  }
-  100% {
-    transform: translate3d(5%, 6%, 0) scale(1.08);
-  }
-}
-
-@keyframes sidebarLowSweep {
-  0% {
-    transform: translate3d(5%, 3%, 0) scale(1);
-  }
-  100% {
-    transform: translate3d(-5%, -4%, 0) scale(1.06);
-  }
-}
-
 @media (prefers-reduced-motion: reduce) {
   .auth-animated-bg::before,
-  .auth-animated-bg::after,
-  .sidebar-animated-bg::before,
-  .sidebar-animated-bg::after {
+  .auth-animated-bg::after {
     animation: none;
   }
 }

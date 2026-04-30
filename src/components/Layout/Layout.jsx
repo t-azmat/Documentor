@@ -89,7 +89,7 @@ const Layout = ({ children }) => {
   return (
     <div className="documentor-shell flex h-screen overflow-hidden" data-theme={theme}>
       <aside
-        className={`sidebar-animated-bg fixed inset-y-0 left-0 z-50 flex w-64 flex-col overflow-hidden border-r border-white/10 bg-[#11141b] shadow-2xl transition-transform duration-300 ease-in-out ${
+        className={`fixed inset-y-0 left-0 z-50 flex w-64 flex-col overflow-hidden border-r border-white/10 bg-[#11141b] shadow-2xl transition-transform duration-300 ease-in-out ${
           sidebarOpen ? 'translate-x-0' : '-translate-x-full'
         } lg:translate-x-0`}
       >
