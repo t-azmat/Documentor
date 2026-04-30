@@ -783,12 +783,12 @@ const DocumentFormatter = ({ document: propDocument, onClose, onFormatSuccess, i
         <div className="max-w-xl mx-auto mt-12 bg-white rounded-xl border border-gray-200 p-6">
           {loadingDocuments ? (
             <div className="text-center py-10">
-              <FaSpinner className="animate-spin text-4xl text-purple-500 mx-auto mb-4" />
+              <FaSpinner className="animate-spin text-4xl text-[#8b5cf6] mx-auto mb-4" />
               <p className="text-sm text-gray-600">Loading your documents...</p>
             </div>
           ) : availableDocuments.length === 0 ? (
             <div className="text-center py-10">
-              <FaBook className="text-4xl text-purple-400 mx-auto mb-3" />
+              <FaBook className="text-4xl text-[#8b5cf6] mx-auto mb-3" />
               <p className="text-sm text-gray-700 font-medium">No documents available</p>
               <p className="text-xs text-gray-500 mt-1">Upload a document first from the Documents page, then return here to format it.</p>
             </div>
@@ -810,7 +810,7 @@ const DocumentFormatter = ({ document: propDocument, onClose, onFormatSuccess, i
               <button
                 onClick={loadSelectedDocument}
                 disabled={loadingSelectedDocument || !selectedDocumentId}
-                className="w-full mt-4 px-4 py-3 bg-purple-600 text-white font-medium rounded-lg hover:bg-purple-700 disabled:opacity-60 transition-colors flex items-center justify-center gap-2"
+                className="documentor-action-button w-full mt-4 px-4 py-3 bg-[#8b5cf6] text-white font-bold rounded-lg hover:bg-[#7c3aed] disabled:opacity-60 transition-colors flex items-center justify-center gap-2"
               >
                 {loadingSelectedDocument ? (
                   <>
@@ -842,7 +842,7 @@ const DocumentFormatter = ({ document: propDocument, onClose, onFormatSuccess, i
     <div className={isModal ? 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4' : 'p-6'}>
       <div className={isModal ? 'bg-white rounded-xl max-w-5xl w-full max-h-[95vh] overflow-hidden flex flex-col shadow-2xl' : 'bg-white rounded-xl w-full overflow-y-auto flex flex-col shadow-2xl border border-gray-200'}>
         {/* Header */}
-        <div className="bg-gradient-to-r from-purple-600 to-purple-800 text-white p-6 border-b border-purple-700">
+        <div className="bg-[#11141b] text-white p-6 border-b border-[#8b5cf6]/30">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
               <div className="bg-white bg-opacity-20 p-3 rounded-lg">
@@ -850,7 +850,7 @@ const DocumentFormatter = ({ document: propDocument, onClose, onFormatSuccess, i
               </div>
               <div>
                 <h2 className="text-2xl font-bold">Document Formatter</h2>
-                <p className="text-purple-100 text-sm mt-1">
+                <p className="text-slate-400 text-sm mt-1">
                   {document?.title || 'Document'} - Apply Citation Styles
                 </p>
               </div>
@@ -858,7 +858,7 @@ const DocumentFormatter = ({ document: propDocument, onClose, onFormatSuccess, i
             {isModal && onClose && (
               <button
                 onClick={onClose}
-                className="p-2 hover:bg-purple-500 rounded-lg transition-colors"
+                className="p-2 hover:bg-white/10 rounded-lg transition-colors"
               >
                 <FaTimes className="text-xl" />
               </button>
@@ -882,9 +882,9 @@ const DocumentFormatter = ({ document: propDocument, onClose, onFormatSuccess, i
               )}
 
               {/* Document Info */}
-              <div className="bg-purple-50 border border-purple-200 rounded-lg p-6 mb-8">
+              <div className="bg-[#8b5cf6]/10 border border-[#8b5cf6]/20 rounded-lg p-6 mb-8">
                 <div className="flex items-start gap-3">
-                  <FaFileAlt className="text-purple-600 mt-1 flex-shrink-0" />
+                  <FaFileAlt className="text-[#8b5cf6] mt-1 flex-shrink-0" />
                   <div className="flex-1">
                     <h3 className="font-semibold text-gray-900">Document Information</h3>
                     <p className="text-sm text-gray-600 mt-1">
@@ -903,7 +903,7 @@ const DocumentFormatter = ({ document: propDocument, onClose, onFormatSuccess, i
               {/* Style Selection */}
               <div className="mb-8">
                 <h3 className="font-semibold text-gray-900 mb-4 flex items-center gap-2">
-                  <FaBook className="text-purple-600" />
+                  <FaBook className="text-[#8b5cf6]" />
                   Select Formatting Style
                 </h3>
 
@@ -913,8 +913,8 @@ const DocumentFormatter = ({ document: propDocument, onClose, onFormatSuccess, i
                     onClick={() => setEngineMode('experimental')}
                     className={`px-4 py-2 rounded-lg text-sm font-medium border transition-colors ${
                       engineMode === 'experimental'
-                        ? 'bg-indigo-600 border-indigo-600 text-white'
-                        : 'bg-white border-gray-300 text-gray-700 hover:border-indigo-300'
+                        ? 'bg-[#8b5cf6] border-[#8b5cf6] text-white'
+                        : 'bg-white border-gray-300 text-gray-700 hover:border-[#8b5cf6]/60'
                     }`}
                   >
                     New Engine (Local Rules)
@@ -922,12 +922,12 @@ const DocumentFormatter = ({ document: propDocument, onClose, onFormatSuccess, i
                 </div>
 
                 {engineMode === 'experimental' ? (
-                  <div className="border border-indigo-200 bg-indigo-50 rounded-lg p-5">
-                    <label className="block text-sm font-semibold text-indigo-900 mb-2">
+                  <div className="border border-[#8b5cf6]/20 bg-[#8b5cf6]/10 rounded-lg p-5">
+                    <label className="block text-sm font-semibold text-gray-900 mb-2">
                       Target Journal Style
                     </label>
                     <select
-                      className="w-full border border-indigo-300 rounded-lg px-3 py-2 text-sm text-gray-900 bg-white"
+                      className="w-full border border-[#8b5cf6]/30 rounded-lg px-3 py-2 text-sm text-gray-900 bg-white"
                       value={experimentalStyle}
                       onChange={(e) => setExperimentalStyle(e.target.value)}
                       disabled={formatting}
@@ -938,11 +938,11 @@ const DocumentFormatter = ({ document: propDocument, onClose, onFormatSuccess, i
                         </option>
                       ))}
                     </select>
-                    <p className="text-xs text-indigo-700 mt-2">
+                    <p className="text-xs text-gray-600 mt-2">
                       This mode runs the standalone formatting engine and returns preview + artifact downloads.
                     </p>
-                    <div className="mt-4 border-t border-indigo-200 pt-4">
-                      <label className="block text-sm font-semibold text-indigo-900 mb-2">
+                    <div className="mt-4 border-t border-[#8b5cf6]/20 pt-4">
+                      <label className="block text-sm font-semibold text-gray-900 mb-2">
                         Document Guidelines
                       </label>
                       <input
@@ -950,22 +950,22 @@ const DocumentFormatter = ({ document: propDocument, onClose, onFormatSuccess, i
                         accept=".pdf,.docx,.txt,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain"
                         disabled={formatting}
                         onChange={(event) => setGuidelinesFile(event.target.files?.[0] || null)}
-                        className="block w-full text-sm text-gray-700 file:mr-4 file:rounded-lg file:border-0 file:bg-indigo-600 file:px-4 file:py-2 file:text-sm file:font-medium file:text-white hover:file:bg-indigo-700 disabled:opacity-60"
+                        className="block w-full text-sm text-gray-700 file:mr-4 file:rounded-lg file:border-0 file:bg-[#8b5cf6] file:px-4 file:py-2 file:text-sm file:font-bold file:text-white hover:file:bg-[#7c3aed] disabled:opacity-60"
                       />
                       {guidelinesFile ? (
-                        <div className="mt-2 flex items-center justify-between gap-3 rounded-lg border border-indigo-200 bg-white px-3 py-2 text-xs text-indigo-800">
+                        <div className="mt-2 flex items-center justify-between gap-3 rounded-lg border border-[#8b5cf6]/20 bg-white px-3 py-2 text-xs text-gray-700">
                           <span className="truncate">{guidelinesFile.name}</span>
                           <button
                             type="button"
                             onClick={() => setGuidelinesFile(null)}
-                            className="text-indigo-700 hover:text-indigo-900"
+                            className="text-[#6d28d9] hover:text-white"
                             disabled={formatting}
                           >
                             Remove
                           </button>
                         </div>
                       ) : (
-                        <p className="text-xs text-indigo-700 mt-2">
+                        <p className="text-xs text-gray-600 mt-2">
                           Upload a PDF, DOCX, or TXT guide so the engine can extract custom heading and layout rules.
                         </p>
                       )}
@@ -978,8 +978,8 @@ const DocumentFormatter = ({ document: propDocument, onClose, onFormatSuccess, i
                         key={style.id}
                         className={`border-2 rounded-lg p-6 cursor-pointer transition-all ${
                           selectedStyle === style.id
-                            ? 'border-purple-500 bg-purple-50'
-                            : 'border-gray-200 hover:border-purple-300 hover:bg-gray-50'
+                            ? 'border-[#8b5cf6] bg-[#8b5cf6]/10'
+                            : 'border-gray-200 hover:border-[#8b5cf6]/50 hover:bg-gray-50'
                         }`}
                       >
                         <div className="flex items-start gap-3">
@@ -990,12 +990,12 @@ const DocumentFormatter = ({ document: propDocument, onClose, onFormatSuccess, i
                             checked={selectedStyle === style.id}
                             onChange={(e) => setSelectedStyle(e.target.value)}
                             disabled={formatting}
-                            className="mt-1 w-5 h-5 text-purple-600 cursor-pointer"
+                            className="mt-1 w-5 h-5 text-[#8b5cf6] cursor-pointer"
                           />
                           <div className="flex-1">
                             <div className="flex items-center gap-2 mb-1">
                               <h4 className="font-bold text-lg text-gray-900">{style.name}</h4>
-                              <span className="text-xs bg-purple-100 text-purple-700 px-2 py-1 rounded">
+                              <span className="text-xs bg-[#8b5cf6]/10 text-[#6d28d9] px-2 py-1 rounded">
                                 {style.edition}
                               </span>
                             </div>
@@ -1010,7 +1010,7 @@ const DocumentFormatter = ({ document: propDocument, onClose, onFormatSuccess, i
                             <div className="space-y-1">
                               {style.features.map((feature, idx) => (
                                 <div key={idx} className="text-xs text-gray-600 flex items-center gap-2">
-                                  <FaCheckSquare className="text-purple-500" />
+                                  <FaCheckSquare className="text-[#8b5cf6]" />
                                   {feature}
                                 </div>
                               ))}
@@ -1058,7 +1058,7 @@ const DocumentFormatter = ({ document: propDocument, onClose, onFormatSuccess, i
                     }}
                     className={`px-4 py-3 font-medium border-b-2 transition-colors flex items-center gap-2 ${
                       activeTab === id
-                        ? 'border-purple-600 text-purple-600'
+                        ? 'border-[#8b5cf6] text-[#8b5cf6]'
                         : 'border-transparent text-gray-600 hover:text-gray-900'
                     }`}
                   >
@@ -1073,9 +1073,9 @@ const DocumentFormatter = ({ document: propDocument, onClose, onFormatSuccess, i
                 <div className="space-y-4">
                   {/* Format Summary */}
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-                    <div className="bg-gradient-to-br from-purple-50 to-purple-100 rounded-lg p-4 border border-purple-200">
+                    <div className="bg-[#8b5cf6]/10 rounded-lg p-4 border border-[#8b5cf6]/20">
                       <p className="text-xs text-gray-600 mb-1">Selected Style</p>
-                      <p className="text-xl font-bold text-purple-700">{activeStyleLabel}</p>
+                      <p className="text-xl font-bold text-[#8b5cf6]">{activeStyleLabel}</p>
                     </div>
                     <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg p-4 border border-blue-200">
                       <p className="text-xs text-gray-600 mb-1">Rules Applied</p>
@@ -1088,28 +1088,28 @@ const DocumentFormatter = ({ document: propDocument, onClose, onFormatSuccess, i
                   </div>
 
                   {isExperimentalResult && aiResult?.new_engine?.engine_report && (
-                    <div className="bg-indigo-50 border border-indigo-200 rounded-lg p-4 mb-6">
-                      <p className="text-sm font-semibold text-indigo-900 mb-2">New Engine Layout Mix</p>
+                    <div className="bg-[#8b5cf6]/10 border border-[#8b5cf6]/20 rounded-lg p-4 mb-6">
+                      <p className="text-sm font-semibold text-gray-900 mb-2">New Engine Layout Mix</p>
                       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
                         <div>
-                          <p className="text-xs text-indigo-700">Groq calls</p>
-                          <p className="font-bold text-indigo-950">{aiResult.new_engine.engine_report.groq_called_sections || 0}</p>
+                          <p className="text-xs text-gray-600">Groq calls</p>
+                          <p className="font-bold text-gray-900">{aiResult.new_engine.engine_report.groq_called_sections || 0}</p>
                         </div>
                         <div>
-                          <p className="text-xs text-indigo-700">Groq structured</p>
-                          <p className="font-bold text-indigo-950">{aiResult.new_engine.engine_report.groq_sections || 0}</p>
+                          <p className="text-xs text-gray-600">Groq structured</p>
+                          <p className="font-bold text-gray-900">{aiResult.new_engine.engine_report.groq_sections || 0}</p>
                         </div>
                         <div>
-                          <p className="text-xs text-indigo-700">Fallback sections</p>
-                          <p className="font-bold text-indigo-950">{aiResult.new_engine.engine_report.fallback_sections || 0}</p>
+                          <p className="text-xs text-gray-600">Fallback sections</p>
+                          <p className="font-bold text-gray-900">{aiResult.new_engine.engine_report.fallback_sections || 0}</p>
                         </div>
                         <div>
-                          <p className="text-xs text-indigo-700">Skipped sections</p>
-                          <p className="font-bold text-indigo-950">{aiResult.new_engine.engine_report.skipped_sections || 0}</p>
+                          <p className="text-xs text-gray-600">Skipped sections</p>
+                          <p className="font-bold text-gray-900">{aiResult.new_engine.engine_report.skipped_sections || 0}</p>
                         </div>
                         <div>
-                          <p className="text-xs text-indigo-700">Total sections</p>
-                          <p className="font-bold text-indigo-950">{aiResult.new_engine.engine_report.total_sections || 0}</p>
+                          <p className="text-xs text-gray-600">Total sections</p>
+                          <p className="font-bold text-gray-900">{aiResult.new_engine.engine_report.total_sections || 0}</p>
                         </div>
                       </div>
                     </div>
@@ -1117,7 +1117,7 @@ const DocumentFormatter = ({ document: propDocument, onClose, onFormatSuccess, i
 
                   {/* Formatted Content — styled document preview */}
                   <div
-                    className="bg-white border border-gray-300 shadow-sm rounded-lg overflow-y-auto"
+                    className="document-preview-page border shadow-sm rounded-lg overflow-y-auto"
                     style={{ maxHeight: '560px', padding: '56px 72px', fontFamily: previewFont, fontSize: previewBodySize, color: '#111' }}
                   >
                     {isExperimentalResult && previewMeta.title && (
@@ -1208,9 +1208,9 @@ const DocumentFormatter = ({ document: propDocument, onClose, onFormatSuccess, i
                         )}
 
                         {isExperimentalResult && (
-                          <div className="bg-indigo-50 border border-indigo-200 rounded-lg p-4" style={{ fontFamily: 'Inter, sans-serif', fontSize: '13px' }}>
-                            <p className="font-semibold text-indigo-900 mb-1">New Engine Output</p>
-                            <p className="text-indigo-800">
+                          <div className="bg-[#8b5cf6]/10 border border-[#8b5cf6]/20 rounded-lg p-4" style={{ fontFamily: 'Inter, sans-serif', fontSize: '13px' }}>
+                            <p className="font-semibold text-gray-900 mb-1">New Engine Output</p>
+                            <p className="text-gray-700">
                               Run ID: {aiResult?.new_engine?.run_id || 'N/A'} · Files available: {(aiResult?.new_engine?.available_files || []).join(', ') || 'none'}
                             </p>
                           </div>
@@ -1240,7 +1240,7 @@ const DocumentFormatter = ({ document: propDocument, onClose, onFormatSuccess, i
                       onClick={() => handleDownload('pdf')}
                       disabled={!!downloading || !canDownloadFormat('pdf')}
                       title={!canDownloadFormat('pdf') ? 'PDF artifact is not available for this run' : undefined}
-                      className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg text-sm font-medium hover:bg-red-700 disabled:opacity-50 transition-colors"
+                      className="documentor-action-button flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg text-sm font-medium hover:bg-red-700 disabled:opacity-50 transition-colors"
                     >
                       {downloading === 'pdf' ? <FaSpinner className="animate-spin" /> : <FaFilePdf />}
                       PDF
@@ -1250,7 +1250,7 @@ const DocumentFormatter = ({ document: propDocument, onClose, onFormatSuccess, i
                       onClick={() => handleDownload('docx')}
                       disabled={!!downloading || !canDownloadFormat('docx')}
                       title={!canDownloadFormat('docx') ? 'DOCX artifact is not available for this run' : undefined}
-                      className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-50 transition-colors"
+                      className="documentor-action-button flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-50 transition-colors"
                     >
                       {downloading === 'docx' ? <FaSpinner className="animate-spin" /> : <FaFileWord />}
                       Word (.docx)
@@ -1259,7 +1259,7 @@ const DocumentFormatter = ({ document: propDocument, onClose, onFormatSuccess, i
                     <button
                       onClick={() => handleDownload('tex')}
                       disabled={!!downloading || !canDownloadFormat('tex')}
-                      className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-700 disabled:opacity-50 transition-colors"
+                      className="documentor-action-button flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-700 disabled:opacity-50 transition-colors"
                     >
                       {downloading === 'tex' ? <FaSpinner className="animate-spin" /> : <FaCode />}
                       LaTeX (.tex)
@@ -1269,7 +1269,7 @@ const DocumentFormatter = ({ document: propDocument, onClose, onFormatSuccess, i
                       <button
                         onClick={() => handleDownload('ir')}
                         disabled={!!downloading || !canDownloadFormat('ir')}
-                        className="flex items-center gap-2 px-4 py-2 bg-gray-700 text-white rounded-lg text-sm font-medium hover:bg-gray-800 disabled:opacity-50 transition-colors"
+                        className="documentor-action-button flex items-center gap-2 px-4 py-2 bg-gray-700 text-white rounded-lg text-sm font-medium hover:bg-gray-800 disabled:opacity-50 transition-colors"
                       >
                         {downloading === 'ir' ? <FaSpinner className="animate-spin" /> : <FaCode />}
                         IR (.json)
@@ -1280,7 +1280,7 @@ const DocumentFormatter = ({ document: propDocument, onClose, onFormatSuccess, i
                       <button
                         onClick={() => handleDownload('layout')}
                         disabled={!!downloading || !canDownloadFormat('layout')}
-                        className="flex items-center gap-2 px-4 py-2 bg-slate-600 text-white rounded-lg text-sm font-medium hover:bg-slate-700 disabled:opacity-50 transition-colors"
+                        className="documentor-action-button flex items-center gap-2 px-4 py-2 bg-slate-600 text-white rounded-lg text-sm font-medium hover:bg-slate-700 disabled:opacity-50 transition-colors"
                       >
                         {downloading === 'layout' ? <FaSpinner className="animate-spin" /> : <FaCode />}
                         Layout (.json)
@@ -1308,7 +1308,7 @@ const DocumentFormatter = ({ document: propDocument, onClose, onFormatSuccess, i
                 <div className="space-y-3 max-h-96 overflow-y-auto">
                   {appliedRules && appliedRules.length > 0 ? (
                     appliedRules.map((rule, index) => (
-                      <div key={index} className="border border-gray-200 rounded-lg p-4 hover:border-purple-300 transition-colors">
+                      <div key={index} className="border border-gray-200 rounded-lg p-4 hover:border-[#8b5cf6]/50 transition-colors">
                         <div className="flex items-start gap-3">
                           <FaCheckCircle className="text-green-600 flex-shrink-0 mt-1" />
                           <div className="flex-1">
@@ -1338,7 +1338,7 @@ const DocumentFormatter = ({ document: propDocument, onClose, onFormatSuccess, i
                 <div className="space-y-4 max-h-96 overflow-y-auto">
                   {analyzingCitations ? (
                     <div className="text-center py-12">
-                      <FaSpinner className="animate-spin text-4xl text-purple-600 mx-auto mb-4" />
+                      <FaSpinner className="animate-spin text-4xl text-[#8b5cf6] mx-auto mb-4" />
                       <p className="text-gray-600">Analyzing citations...</p>
                     </div>
                   ) : citationAnalysis ? (
@@ -1357,8 +1357,8 @@ const DocumentFormatter = ({ document: propDocument, onClose, onFormatSuccess, i
                           </div>
                           <div className="text-xs text-gray-600">References</div>
                         </div>
-                        <div className="bg-purple-50 rounded-lg p-3 border border-purple-200 text-center">
-                          <div className="text-2xl font-bold text-purple-700">
+                        <div className="bg-[#8b5cf6]/10 rounded-lg p-3 border border-[#8b5cf6]/20 text-center">
+                          <div className="text-2xl font-bold text-[#8b5cf6]">
                             {citationAnalysis.matched_count || 0}
                           </div>
                           <div className="text-xs text-gray-600">Matched</div>
@@ -1470,7 +1470,7 @@ const DocumentFormatter = ({ document: propDocument, onClose, onFormatSuccess, i
               </button>
               <button
                 onClick={handleCopyFormatted}
-                className="flex-1 px-4 py-3 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center gap-2"
+                className="documentor-action-button flex-1 px-4 py-3 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center gap-2"
               >
                 <FaCopy />
                 {copySuccess ? 'Copied!' : 'Copy Text'}
@@ -1479,7 +1479,7 @@ const DocumentFormatter = ({ document: propDocument, onClose, onFormatSuccess, i
                 onClick={() => handleDownload('pdf')}
                 disabled={!!downloading || !canDownloadFormat('pdf')}
                 title={!canDownloadFormat('pdf') ? 'PDF artifact is not available for this run' : undefined}
-                className="flex-1 px-4 py-3 bg-red-600 text-white font-medium rounded-lg hover:bg-red-700 disabled:opacity-50 transition-colors flex items-center justify-center gap-2"
+                className="documentor-action-button flex-1 px-4 py-3 bg-red-600 text-white font-medium rounded-lg hover:bg-red-700 disabled:opacity-50 transition-colors flex items-center justify-center gap-2"
               >
                 {downloading === 'pdf' ? <FaSpinner className="animate-spin" /> : <FaFilePdf />}
                 PDF
@@ -1488,7 +1488,7 @@ const DocumentFormatter = ({ document: propDocument, onClose, onFormatSuccess, i
                 onClick={() => handleDownload('docx')}
                 disabled={!!downloading || !canDownloadFormat('docx')}
                 title={!canDownloadFormat('docx') ? 'DOCX artifact is not available for this run' : undefined}
-                className="flex-1 px-4 py-3 bg-indigo-600 text-white font-medium rounded-lg hover:bg-indigo-700 disabled:opacity-50 transition-colors flex items-center justify-center gap-2"
+                className="documentor-action-button flex-1 px-4 py-3 bg-[#8b5cf6] text-white font-bold rounded-lg hover:bg-[#7c3aed] disabled:opacity-50 transition-colors flex items-center justify-center gap-2"
               >
                 {downloading === 'docx' ? <FaSpinner className="animate-spin" /> : <FaFileWord />}
                 Word
@@ -1496,7 +1496,7 @@ const DocumentFormatter = ({ document: propDocument, onClose, onFormatSuccess, i
               <button
                 onClick={() => handleDownload('tex')}
                 disabled={!!downloading || !canDownloadFormat('tex')}
-                className="flex-1 px-4 py-3 bg-green-600 text-white font-medium rounded-lg hover:bg-green-700 disabled:opacity-50 transition-colors flex items-center justify-center gap-2"
+                className="documentor-action-button flex-1 px-4 py-3 bg-green-600 text-white font-medium rounded-lg hover:bg-green-700 disabled:opacity-50 transition-colors flex items-center justify-center gap-2"
               >
                 {downloading === 'tex' ? <FaSpinner className="animate-spin" /> : <FaCode />}
                 LaTeX
@@ -1505,7 +1505,7 @@ const DocumentFormatter = ({ document: propDocument, onClose, onFormatSuccess, i
                 <button
                   onClick={() => handleDownload('ir')}
                   disabled={!!downloading || !canDownloadFormat('ir')}
-                  className="flex-1 px-4 py-3 bg-gray-700 text-white font-medium rounded-lg hover:bg-gray-800 disabled:opacity-50 transition-colors flex items-center justify-center gap-2"
+                  className="documentor-action-button flex-1 px-4 py-3 bg-gray-700 text-white font-medium rounded-lg hover:bg-gray-800 disabled:opacity-50 transition-colors flex items-center justify-center gap-2"
                 >
                   {downloading === 'ir' ? <FaSpinner className="animate-spin" /> : <FaCode />}
                   IR
@@ -1515,7 +1515,7 @@ const DocumentFormatter = ({ document: propDocument, onClose, onFormatSuccess, i
                 <button
                   onClick={() => handleDownload('layout')}
                   disabled={!!downloading || !canDownloadFormat('layout')}
-                  className="flex-1 px-4 py-3 bg-slate-600 text-white font-medium rounded-lg hover:bg-slate-700 disabled:opacity-50 transition-colors flex items-center justify-center gap-2"
+                  className="documentor-action-button flex-1 px-4 py-3 bg-slate-600 text-white font-medium rounded-lg hover:bg-slate-700 disabled:opacity-50 transition-colors flex items-center justify-center gap-2"
                 >
                   {downloading === 'layout' ? <FaSpinner className="animate-spin" /> : <FaCode />}
                   Layout
@@ -1524,7 +1524,7 @@ const DocumentFormatter = ({ document: propDocument, onClose, onFormatSuccess, i
               {isModal && onClose && (
                 <button
                   onClick={onClose}
-                  className="flex-1 px-4 py-3 bg-purple-600 text-white font-medium rounded-lg hover:bg-purple-700 transition-colors flex items-center justify-center gap-2"
+                  className="documentor-action-button flex-1 px-4 py-3 bg-[#8b5cf6] text-white font-bold rounded-lg hover:bg-[#7c3aed] transition-colors flex items-center justify-center gap-2"
                 >
                   Close
                 </button>
@@ -1548,23 +1548,23 @@ const DocumentFormatter = ({ document: propDocument, onClose, onFormatSuccess, i
                   onClick={() => setLargeDocMode(v => !v)}
                   className={`flex items-center gap-2 text-xs font-medium px-3 py-1.5 rounded-full border transition-colors ${
                     largeDocMode
-                      ? 'bg-indigo-100 border-indigo-400 text-indigo-700'
+                      ? 'bg-[#8b5cf6]/10 border-[#8b5cf6] text-[#6d28d9]'
                       : 'bg-gray-100 border-gray-300 text-gray-500 hover:border-gray-400'
                   }`}
                 >
-                  <FaTasks className={largeDocMode ? 'text-indigo-600' : 'text-gray-400'} />
+                  <FaTasks className={largeDocMode ? 'text-[#8b5cf6]' : 'text-gray-400'} />
                   {largeDocMode ? 'Large-Doc Pipeline ON' : 'Large-Doc Pipeline (100+ pages)'}
                 </button>
                 {largeDocMode && (
-                  <span className="text-xs text-indigo-500">Stateful · chunked · resumable</span>
+                  <span className="text-xs text-[#6d28d9]">Stateful · chunked · resumable</span>
                 )}
                 </div>
               )}
 
               {/* Progress panel */}
               {formatting && progress && (
-                <div className="w-full bg-indigo-50 border border-indigo-200 rounded-lg p-3 mb-1">
-                  <div className="flex justify-between text-xs font-medium text-indigo-800 mb-1">
+                <div className="w-full bg-[#8b5cf6]/10 border border-[#8b5cf6]/20 rounded-lg p-3 mb-1">
+                  <div className="flex justify-between text-xs font-medium text-gray-800 mb-1">
                     <span>
                       {progress.complete
                         ? '✓ Complete'
@@ -1578,21 +1578,21 @@ const DocumentFormatter = ({ document: propDocument, onClose, onFormatSuccess, i
                     </span>
                   </div>
                   {!progress.complete && (
-                    <div className="w-full bg-indigo-200 rounded-full h-2 mb-1">
+                    <div className="w-full bg-[#8b5cf6]/20 rounded-full h-2 mb-1">
                       <div
-                        className="bg-indigo-600 h-2 rounded-full transition-all duration-300"
+                        className="bg-[#8b5cf6] h-2 rounded-full transition-all duration-300"
                         style={{ width: `${Math.max(5, progress.percentage || (progress.total > 0 ? Math.min(100, (progress.chunk / progress.total) * 100) : 0))}%` }}
                       />
                     </div>
                   )}
-                  <p className="text-xs text-indigo-600 truncate">{progress.section}</p>
+                  <p className="text-xs text-[#6d28d9] truncate">{progress.section}</p>
                 </div>
               )}
 
               <button
                 onClick={handleApplyFormatting}
                 disabled={formatting}
-                className="flex-1 px-4 py-3 bg-purple-600 text-white font-medium rounded-lg hover:bg-purple-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                className="documentor-action-button flex-1 px-4 py-3 bg-[#8b5cf6] text-white font-bold rounded-lg hover:bg-[#7c3aed] transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center justify-center gap-2"
               >
                 {formatting ? (
                   <>
@@ -1610,7 +1610,7 @@ const DocumentFormatter = ({ document: propDocument, onClose, onFormatSuccess, i
               {engineMode === 'legacy' && formatting && activeJobId && (
                 <button
                   onClick={handleCancelFormatting}
-                  className="flex-1 px-4 py-3 bg-red-600 text-white font-medium rounded-lg hover:bg-red-700 transition-colors flex items-center justify-center gap-2"
+                  className="documentor-action-button flex-1 px-4 py-3 bg-red-600 text-white font-medium rounded-lg hover:bg-red-700 transition-colors flex items-center justify-center gap-2"
                 >
                   <FaTimes />
                   Cancel Job

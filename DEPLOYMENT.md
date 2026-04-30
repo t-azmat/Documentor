@@ -39,6 +39,7 @@ MONGODB_URI=<your MongoDB Atlas URI>
 JWT_SECRET=<long random secret>
 FRONTEND_URL=https://<your-vercel-app>.vercel.app
 FRONTEND_URLS=https://<your-vercel-app>.vercel.app,http://localhost:5173
+FRONTEND_ORIGIN_PATTERNS=^https:\/\/documentor-[a-z0-9-]+-t-azmats-projects\.vercel\.app$
 PYTHON_NLP_URL=https://documentor-nlp.onrender.com
 PYTHON_GRAMMAR_SERVICE_URL=https://documentor-nlp.onrender.com
 ADMIN_EMAIL=<your admin email>
@@ -72,11 +73,11 @@ In Vercel:
 
 ```env
 VITE_API_URL=https://documentor-backend.onrender.com/api
-VITE_PYTHON_NLP_URL=https://documentor-nlp.onrender.com
-VITE_NLP_API_URL=https://documentor-nlp.onrender.com
 ```
 
 Redeploy after setting env vars.
+
+The browser should call only the Node backend. The backend calls the Python NLP service through `PYTHON_NLP_URL`, which keeps the Python service URL and CORS surface out of the frontend.
 
 ## 4. Health Checks
 

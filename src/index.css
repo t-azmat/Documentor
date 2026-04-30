@@ -457,6 +457,29 @@ body {
   box-shadow: none !important;
 }
 
+.documentor-shell .document-preview-page {
+  background-color: #ffffff !important;
+  color: #111827 !important;
+  border-color: #d1d5db !important;
+}
+
+.documentor-shell .document-preview-page *,
+.documentor-shell[data-theme="light"] .document-preview-page * {
+  color: inherit !important;
+}
+
+.documentor-shell .document-preview-page .text-\[\#8b5cf6\],
+.documentor-shell .document-preview-page .text-primary-600 {
+  color: #6d28d9 !important;
+}
+
+.documentor-shell .documentor-action-button,
+.documentor-shell .documentor-action-button *,
+.documentor-shell[data-theme="light"] .documentor-action-button,
+.documentor-shell[data-theme="light"] .documentor-action-button * {
+  color: #ffffff !important;
+}
+
 .documentor-shell table,
 .documentor-shell pre,
 .documentor-shell code {

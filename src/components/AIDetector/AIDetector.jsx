@@ -4,8 +4,7 @@ import {
   FaCheckCircle, FaExclamationTriangle, FaExclamationCircle, FaInfoCircle, FaArrowRight,
 } from 'react-icons/fa'
 import { fileExtractorAPI } from '../../services/pythonNlpService'
-
-const NLP_URL = import.meta.env.VITE_NLP_API_URL || 'http://localhost:5001'
+import api from '../../services/api'
 
 // isModal=true -> fixed overlay; isModal=false -> inline page card
 const AIDetector = ({ document: propDocument, onClose, isModal = !!onClose }) => {
@@ -45,16 +44,12 @@ const AIDetector = ({ document: propDocument, onClose, isModal = !!onClose }) =>
     setError('')
     setResults(null)
     try {
-      const response = await fetch(`${NLP_URL}/api/ai-detect`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text: text.trim() })
-      })
-      const data = await response.json()
-      if (!response.ok || !data.success) throw new Error(data.error || 'Detection failed')
+      const response = await api.post('/nlp/ai-detect', { text: text.trim() })
+      const data = response.data
+      if (!data.success) throw new Error(data.error || 'Detection failed')
       setResults(data)
     } catch (err) {
-      setError(err.message || 'Failed to run AI detection')
+      setError(err.response?.data?.error || err.message || 'Failed to run AI detection')
     } finally {
       setLoading(false)
     }

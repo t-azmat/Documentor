@@ -1,6 +1,4 @@
-import axios from 'axios'
-
-const PYTHON_NLP_URL = import.meta.env.VITE_PYTHON_NLP_URL || 'http://localhost:5001'
+import api from './api'
 
 // Centralized File Extraction API (supports PDF, DOCX, TXT, LaTeX)
 export const fileExtractorAPI = {
@@ -8,44 +6,40 @@ export const fileExtractorAPI = {
   extractText: (file) => {
     const formData = new FormData()
     formData.append('file', file)
-    return axios.post(`${PYTHON_NLP_URL}/api/extract/file`, formData, {
-      headers: { 'Content-Type': 'multipart/form-data' }
-    })
+    return api.post('/nlp/extract/file', formData)
   }
 }
 
 export const pythonNlpAPI = {
   // Health check
-  healthCheck: () => axios.get(`${PYTHON_NLP_URL}/health`),
+  healthCheck: () => api.get('/health'),
 
   // Analyze text
   analyze: (text) => 
-    axios.post(`${PYTHON_NLP_URL}/api/nlp/analyze`, { text }),
+    api.post('/nlp/analyze', { text }),
 
   // Extract from file
   extractFromFile: (file) => {
     const formData = new FormData()
     formData.append('file', file)
-    return axios.post(`${PYTHON_NLP_URL}/api/nlp/extract`, formData, {
-      headers: { 'Content-Type': 'multipart/form-data' }
-    })
+    return api.post('/nlp/extract/file', formData)
   },
 
   // Extract entities
   extractEntities: (text) =>
-    axios.post(`${PYTHON_NLP_URL}/api/nlp/entities`, { text }),
+    api.post('/nlp/entities', { text }),
 
   // Extract keywords
   extractKeywords: (text, maxKeywords = 10) =>
-    axios.post(`${PYTHON_NLP_URL}/api/nlp/keywords`, { text, max_keywords: maxKeywords }),
+    api.post('/nlp/keywords', { text, max_keywords: maxKeywords }),
 
   // Summarize text
   summarize: (text, maxLength = 150) =>
-    axios.post(`${PYTHON_NLP_URL}/api/nlp/summarize`, { text, max_length: maxLength }),
+    api.post('/nlp/summarize', { text, max_length: maxLength }),
 
   // Analyze sentiment
   analyzeSentiment: (text) =>
-    axios.post(`${PYTHON_NLP_URL}/api/nlp/sentiment`, { text })
+    api.post('/nlp/sentiment', { text })
 }
 
 // Citation Management API
@@ -54,24 +48,22 @@ export const citationAPI = {
   extractFromFile: (file) => {
     const formData = new FormData()
     formData.append('file', file)
-    return axios.post(`${PYTHON_NLP_URL}/api/citations/extract`, formData, {
-      headers: { 'Content-Type': 'multipart/form-data' }
-    })
+    return api.post('/citations/extract', formData)
   },
 
   // Detect citation style from text
   detectStyle: (text) =>
-    axios.post(`${PYTHON_NLP_URL}/api/citations/detect-style`, { text }),
+    api.post('/citations/detect-style', { text }),
 
   // Match citations to references
   matchCitations: (text) =>
-    axios.post(`${PYTHON_NLP_URL}/api/citations/match`, { text }),
+    api.post('/citations/match', { text }),
 
   // Extract citations directly from plain text (no file upload needed)
   extractFromText: async (text) => {
     const [matchRes, styleRes] = await Promise.allSettled([
-      axios.post(`${PYTHON_NLP_URL}/api/citations/match`, { text }),
-      axios.post(`${PYTHON_NLP_URL}/api/citations/detect-style`, { text })
+      api.post('/citations/match', { text }),
+      api.post('/citations/detect-style', { text })
     ])
     if (matchRes.status === 'rejected') throw matchRes.reason
     const data = matchRes.value.data
@@ -91,16 +83,16 @@ export const citationAPI = {
 
   // Format document in specific citation style
   formatDocument: (text, style) =>
-    axios.post(`${PYTHON_NLP_URL}/api/citations/format`, { text, style }),
+    api.post('/citations/format', { text, style }),
 
   // Generate single bibliography entry
   generateCitation: (citationData, style) =>
-    axios.post(`${PYTHON_NLP_URL}/api/citations/generate`, {
-      citation_data: citationData,
+    api.post('/citations/generate', {
+      citationData,
       style
     }),
 
   // Validate citations against style
   validateCitations: (text, style) =>
-    axios.post(`${PYTHON_NLP_URL}/api/citations/validate`, { text, style })
+    api.post('/citations/validate', { text, style })
 }

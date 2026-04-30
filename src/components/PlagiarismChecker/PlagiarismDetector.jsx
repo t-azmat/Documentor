@@ -6,8 +6,7 @@ import {
   FaGlobe, FaExternalLinkAlt,
 } from 'react-icons/fa'
 import { fileExtractorAPI } from '../../services/pythonNlpService'
-
-const NLP_URL = import.meta.env.VITE_NLP_API_URL || 'http://localhost:5001'
+import api from '../../services/api'
 
 // isModal: true  -> renders as fixed overlay (from DocumentWorkspace)
 // isModal: false -> renders as full page (from Plagiarism.jsx)
@@ -102,16 +101,12 @@ const PlagiarismDetector = ({ document: propDocument, onClose, isModal = !!onClo
     setOnlineError('')
     setOnlineResults(null)
     try {
-      const response = await fetch(`${NLP_URL}/api/plagiarism/check-online`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text: docText, threshold: 0.72 })
-      })
-      const data = await response.json()
-      if (!response.ok || !data.success) throw new Error(data.error || 'Online check failed')
+      const response = await api.post('/plagiarism/check-online', { text: docText, threshold: 0.72 })
+      const data = response.data
+      if (!data.success) throw new Error(data.error || 'Online check failed')
       setOnlineResults(data.data)
     } catch (err) {
-      setOnlineError(err.message || 'Failed to run online check')
+      setOnlineError(err.response?.data?.error || err.message || 'Failed to run online check')
     } finally {
       setOnlineChecking(false)
     }
@@ -128,16 +123,12 @@ const PlagiarismDetector = ({ document: propDocument, onClose, isModal = !!onClo
     setError('')
     setResults(null)
     try {
-      const response = await fetch(`${NLP_URL}/api/plagiarism/studio`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text: docText, sources: validSources })
-      })
-      const data = await response.json()
-      if (!response.ok || !data.success) throw new Error(data.error || 'Check failed')
+      const response = await api.post('/plagiarism/studio', { text: docText, sources: validSources })
+      const data = response.data
+      if (!data.success) throw new Error(data.error || 'Check failed')
       setResults(data)
     } catch (err) {
-      setError(err.message || 'Failed to check plagiarism')
+      setError(err.response?.data?.error || err.message || 'Failed to check plagiarism')
     } finally {
       setChecking(false)
     }

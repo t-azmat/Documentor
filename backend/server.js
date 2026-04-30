@@ -46,6 +46,17 @@ const configuredOrigins = [
   .filter(Boolean)
 
 const allowedOrigins = [...new Set([...defaultAllowedOrigins, ...configuredOrigins])]
+const defaultAllowedOriginPatterns = [
+  /^https:\/\/documentor-one\.vercel\.app$/,
+  /^https:\/\/documentor-[a-z0-9-]+-t-azmats-projects\.vercel\.app$/
+]
+const configuredOriginPatterns = (process.env.FRONTEND_ORIGIN_PATTERNS || '')
+  .split(',')
+  .map((value) => String(value || '').trim())
+  .filter(Boolean)
+  .map((value) => new RegExp(value))
+
+const allowedOriginPatterns = [...defaultAllowedOriginPatterns, ...configuredOriginPatterns]
 const corsOptions = {
   origin(origin, callback) {
     // Allow non-browser requests and local tools without an Origin header.
@@ -53,7 +64,7 @@ const corsOptions = {
       return callback(null, true)
     }
 
-    if (allowedOrigins.includes(origin)) {
+    if (allowedOrigins.includes(origin) || allowedOriginPatterns.some((pattern) => pattern.test(origin))) {
       return callback(null, true)
     }
 

@@ -20,6 +20,7 @@ import {
   FaArrowDown,
   FaExclamationCircle,
 } from 'react-icons/fa'
+import api from '../../services/api'
 
 const SectionDetector = ({ document, onClose, onExtractSuccess }) => {
   // Normalise content — can be a plain string OR { raw: '...' } object
@@ -109,29 +110,12 @@ const SectionDetector = ({ document, onClose, onExtractSuccess }) => {
         return
       }
 
-      const response = await fetch(
-        `${import.meta.env.VITE_NLP_API_URL || 'http://localhost:5001'}/api/document/sections`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            text: docText,
-          }),
-        }
-      )
-
-      if (!response.ok) {
-        const errorData = await response.json()
-        throw new Error(errorData.error || 'Failed to analyze structure')
-      }
-
-      const data = await response.json()
+      const response = await api.post('/nlp/document/sections', { text: docText })
+      const data = response.data
       setResults(data.data)
       setActiveTab('structure')
     } catch (err) {
-      setError(err.message || 'Failed to analyze document structure')
+      setError(err.response?.data?.error || err.message || 'Failed to analyze document structure')
       console.error('Structure analysis error:', err)
     } finally {
       setAnalyzing(false)
@@ -144,32 +128,17 @@ const SectionDetector = ({ document, onClose, onExtractSuccess }) => {
     setError('')
 
     try {
-      const response = await fetch(
-        `${import.meta.env.VITE_NLP_API_URL || 'http://localhost:5001'}/api/document/extract-section`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            text: docText,
-            sectionType: sectionId,
-          }),
-        }
-      )
-
-      if (!response.ok) {
-        const errorData = await response.json()
-        throw new Error(errorData.error || 'Failed to extract section')
-      }
-
-      const data = await response.json()
+      const response = await api.post('/nlp/document/extract-section', {
+        text: docText,
+        sectionType: sectionId,
+      })
+      const data = response.data
       setExtractedContent({
         sectionId,
         content: data.content || data.data?.extracted_text || 'No content found',
       })
     } catch (err) {
-      setError(err.message || 'Failed to extract section')
+      setError(err.response?.data?.error || err.message || 'Failed to extract section')
     } finally {
       setExtracting(false)
     }
@@ -181,29 +150,12 @@ const SectionDetector = ({ document, onClose, onExtractSuccess }) => {
     setError('')
 
     try {
-      const response = await fetch(
-        `${import.meta.env.VITE_NLP_API_URL || 'http://localhost:5001'}/api/document/validate-structure`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            text: docText,
-          }),
-        }
-      )
-
-      if (!response.ok) {
-        const errorData = await response.json()
-        throw new Error(errorData.error || 'Failed to validate structure')
-      }
-
-      const data = await response.json()
+      const response = await api.post('/nlp/document/validate-structure', { text: docText })
+      const data = response.data
       setResults({ ...results, validation: data.data })
       setActiveTab('recommendations')
     } catch (err) {
-      setError(err.message || 'Failed to validate structure')
+      setError(err.response?.data?.error || err.message || 'Failed to validate structure')
     } finally {
       setAnalyzing(false)
     }
