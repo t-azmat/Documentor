@@ -9,6 +9,7 @@ import FormatTester from './FormatTester'
 import SystemLogs from './SystemLogs'
 import UserManagement from './UserManagement'
 import ProjectsOverview from './ProjectsOverview'
+import BrandMark from '../../components/BrandLogo/BrandMark'
 
 const Admin = () => {
   const [activeTab, setActiveTab] = useState('overview')
@@ -36,19 +37,17 @@ const Admin = () => {
       <header className="border-b border-white/10 bg-[#11141b] shadow-sm">
         <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-5 py-4">
           <Link to="/dashboard" className="flex min-w-0 items-center gap-3 transition-opacity hover:opacity-90">
-            <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg bg-[#e8c547] text-sm font-black text-[#0c0e13] shadow-[0_0_28px_rgba(232,197,71,0.22)]">
-              D
-            </div>
+            <BrandMark className="h-10 w-10 flex-shrink-0" />
             <div className="min-w-0">
               <div className="truncate text-lg font-black text-white">
-                Docu<span className="text-[#e8c547]">Mentor</span>
+                Docu<span className="text-[#8b5cf6]">Mentor</span>
                 <span className="ml-2 text-sm font-semibold text-slate-500">/ Admin</span>
               </div>
               <p className="truncate text-xs text-slate-500">Operations and system control</p>
             </div>
           </Link>
           <div className="hidden items-center gap-2 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-slate-300 sm:flex">
-            <FaUsers className="text-[#e8c547]" />
+            <FaUsers className="text-[#8b5cf6]" />
             <span>{isAdmin ? 'Admin workspace' : 'Public stats mode'}</span>
           </div>
           <button
@@ -64,11 +63,11 @@ const Admin = () => {
 
       <main className="mx-auto max-w-7xl px-5 py-6">
         <section className="relative mb-6 overflow-hidden rounded-xl border border-white/10 bg-[#11141b] p-6 shadow-2xl">
-          <div className="pointer-events-none absolute -left-24 -top-24 h-72 w-72 rounded-full bg-[#e8c547]/10 blur-3xl" />
+          <div className="pointer-events-none absolute -left-24 -top-24 h-72 w-72 rounded-full bg-[#8b5cf6]/10 blur-3xl" />
           <div className="relative flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
             <div>
               <div className="mb-2 flex items-center gap-3">
-                <div className="rounded-lg bg-[#e8c547]/10 p-3 text-[#e8c547]">
+                <div className="rounded-lg bg-[#8b5cf6]/10 p-3 text-[#8b5cf6]">
                   <FaCog className="text-2xl" />
                 </div>
                 <div>
@@ -85,7 +84,7 @@ const Admin = () => {
             {!isAdmin ? (
               <Link
                 to="/login"
-                className="inline-flex items-center justify-center gap-2 rounded-lg bg-[#e8c547] px-4 py-2 text-sm font-black text-[#0c0e13] transition hover:bg-[#d7b63d]"
+                className="inline-flex items-center justify-center gap-2 rounded-lg bg-[#8b5cf6] px-4 py-2 text-sm font-black text-white transition hover:bg-[#7c3aed]"
               >
                 <FaShieldAlt />
                 Go to login
@@ -107,7 +106,7 @@ const Admin = () => {
                   onClick={() => setActiveTab(tab.id)}
                   className={`flex items-center gap-2 whitespace-nowrap rounded-t-lg border-b-2 px-5 py-4 text-sm font-bold transition-colors ${
                     activeTab === tab.id
-                      ? 'border-[#e8c547] bg-[#e8c547]/10 text-[#e8c547]'
+                      ? 'border-[#8b5cf6] bg-[#8b5cf6]/10 text-[#8b5cf6]'
                       : 'border-transparent text-slate-400 hover:bg-white/5 hover:text-white'
                   }`}
                 >

@@ -6,6 +6,7 @@ import { MdEmail, MdLock } from 'react-icons/md'
 import useAuthStore from '../../store/authStore'
 import { authAPI } from '../../services/api'
 import useTheme from '../../hooks/useTheme'
+import BrandMark from '../../components/BrandLogo/BrandMark'
 
 const Login = () => {
   const navigate = useNavigate()
@@ -46,28 +47,28 @@ const Login = () => {
   }
 
   return (
-    <div className="documentor-shell min-h-screen overflow-hidden bg-[#0c0e13] text-slate-100" data-theme={theme}>
-      <button
-        onClick={toggleTheme}
-        className="fixed right-4 top-4 z-20 flex h-10 w-10 items-center justify-center rounded-lg border border-white/10 bg-white/5 text-slate-300 shadow-lg transition hover:bg-white/10 hover:text-white"
-        aria-label={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
-        title={isDark ? 'Light mode' : 'Dark mode'}
-      >
-        {isDark ? <FaSun /> : <FaMoon />}
-      </button>
+    <div className="documentor-shell auth-animated-bg min-h-screen overflow-hidden bg-[#0c0e13] text-slate-100" data-theme={theme}>
+      <header className="absolute inset-x-0 top-0 z-20 flex h-16 items-center justify-end bg-transparent px-4 sm:px-6">
+        <button
+          onClick={toggleTheme}
+          className="flex h-9 w-9 items-center justify-center rounded-lg border border-white/10 bg-white/5 text-slate-300 transition hover:bg-white/10 hover:text-white"
+          aria-label={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
+          title={isDark ? 'Light mode' : 'Dark mode'}
+        >
+          {isDark ? <FaSun className="h-4 w-4" /> : <FaMoon className="h-4 w-4" />}
+        </button>
+      </header>
       <div className="mx-auto grid min-h-screen w-full max-w-6xl grid-cols-1 items-center gap-8 px-4 py-8 lg:grid-cols-[1fr_440px] lg:px-8">
         <section className="relative hidden min-h-[680px] overflow-hidden rounded-xl border border-white/10 bg-[#11141b] p-8 shadow-2xl lg:flex lg:flex-col lg:justify-between">
-          <div className="pointer-events-none absolute -left-32 -top-32 h-96 w-96 rounded-full bg-[#e8c547]/15 blur-3xl" />
+          <div className="pointer-events-none absolute -left-32 -top-32 h-96 w-96 rounded-full bg-[#8b5cf6]/15 blur-3xl" />
           <div className="pointer-events-none absolute -bottom-28 right-4 h-80 w-80 rounded-full bg-sky-500/10 blur-3xl" />
 
           <div className="relative">
             <div className="mb-10 flex items-center gap-3">
-              <div className="flex h-11 w-11 items-center justify-center rounded-lg bg-[#e8c547] text-base font-black text-[#0c0e13] shadow-[0_0_32px_rgba(232,197,71,0.28)]">
-                D
-              </div>
+              <BrandMark className="h-11 w-11 flex-shrink-0" />
               <div>
                 <h1 className="text-xl font-black">
-                  Docu<span className="text-[#e8c547]">Mentor</span>
+                  Docu<span className="text-[#8b5cf6]">Mentor</span>
                 </h1>
                 <p className="text-xs font-medium text-slate-400">Academic document intelligence</p>
               </div>
@@ -97,9 +98,7 @@ const Login = () => {
 
         <main className="mx-auto w-full max-w-md">
           <div className="mb-8 text-center lg:text-left">
-            <div className="mb-4 inline-flex h-14 w-14 items-center justify-center rounded-lg bg-[#e8c547] text-2xl font-black text-[#0c0e13] shadow-[0_0_32px_rgba(232,197,71,0.28)]">
-              D
-            </div>
+            <BrandMark className="mb-4 inline-block h-14 w-14" />
             <h1 className="text-3xl font-black text-white">Welcome back</h1>
             <p className="mt-2 text-sm text-slate-400">Sign in to continue formatting your documents</p>
           </div>
@@ -157,7 +156,7 @@ const Login = () => {
                     value={formData.email}
                     onChange={handleChange}
                     placeholder="Enter your email"
-                    className="w-full rounded-lg border border-white/10 bg-[#1a1e29] px-4 py-3 pl-12 text-slate-100 outline-none transition placeholder:text-slate-600 focus:border-[#e8c547]/60 focus:ring-4 focus:ring-[#e8c547]/10"
+                    className="w-full rounded-lg border border-white/10 bg-[#1a1e29] px-4 py-3 pl-12 text-slate-100 outline-none transition placeholder:text-slate-600 focus:border-[#8b5cf6]/60 focus:ring-4 focus:ring-[#8b5cf6]/10"
                     required
                   />
                 </div>
@@ -175,7 +174,7 @@ const Login = () => {
                     value={formData.password}
                     onChange={handleChange}
                     placeholder="Enter your password"
-                    className="w-full rounded-lg border border-white/10 bg-[#1a1e29] px-4 py-3 pl-12 text-slate-100 outline-none transition placeholder:text-slate-600 focus:border-[#e8c547]/60 focus:ring-4 focus:ring-[#e8c547]/10"
+                    className="w-full rounded-lg border border-white/10 bg-[#1a1e29] px-4 py-3 pl-12 text-slate-100 outline-none transition placeholder:text-slate-600 focus:border-[#8b5cf6]/60 focus:ring-4 focus:ring-[#8b5cf6]/10"
                     required
                   />
                 </div>
@@ -187,13 +186,13 @@ const Login = () => {
                     type="checkbox"
                     checked={rememberMe}
                     onChange={(e) => setRememberMe(e.target.checked)}
-                    className="h-4 w-4 rounded border-white/20 bg-[#1a1e29] text-[#e8c547] focus:ring-[#e8c547]"
+                    className="h-4 w-4 rounded border-white/20 bg-[#1a1e29] text-[#8b5cf6] focus:ring-[#8b5cf6]"
                   />
                   <span className="ml-2 text-sm text-slate-400">Remember me</span>
                 </label>
                 <Link
                   to="/forgot-password"
-                  className="text-sm font-medium text-[#e8c547] hover:text-[#f3d768]"
+                  className="text-sm font-medium text-[#8b5cf6] hover:text-[#a78bfa]"
                 >
                   Forgot password?
                 </Link>
@@ -202,15 +201,15 @@ const Login = () => {
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full rounded-lg bg-[#e8c547] px-6 py-3 font-black text-[#0c0e13] transition hover:bg-[#d7b63d] disabled:cursor-not-allowed disabled:opacity-60"
+                className="w-full rounded-lg bg-[#8b5cf6] px-6 py-3 font-black text-white transition hover:bg-[#7c3aed] disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {loading ? 'Signing in...' : 'Sign in'}
               </button>
             </form>
 
-            <div className="mt-4 rounded-lg border border-[#e8c547]/20 bg-[#e8c547]/10 p-4">
+            <div className="mt-4 rounded-lg border border-[#8b5cf6]/20 bg-[#8b5cf6]/10 p-4">
               <div className="flex items-start gap-3">
-                <div className="rounded-lg bg-[#e8c547] p-2 text-[#0c0e13] shadow-sm">
+                <div className="rounded-lg bg-[#8b5cf6] p-2 text-white shadow-sm">
                   <FaUserShield />
                 </div>
                 <div className="flex-1">
@@ -221,7 +220,7 @@ const Login = () => {
                   <div className="mt-3">
                     <Link
                       to="/admin"
-                      className="inline-flex items-center gap-2 rounded-lg border border-white/10 bg-white/5 px-4 py-2 text-sm font-medium text-[#e8c547] transition-colors hover:bg-white/10"
+                      className="inline-flex items-center gap-2 rounded-lg border border-white/10 bg-white/5 px-4 py-2 text-sm font-medium text-[#8b5cf6] transition-colors hover:bg-white/10"
                     >
                       <FaShieldAlt />
                       View Admin Stats
@@ -233,7 +232,7 @@ const Login = () => {
 
             <p className="mt-6 text-center text-sm text-slate-400">
               Don't have an account?{' '}
-              <Link to="/signup" className="font-medium text-[#e8c547] hover:text-[#f3d768]">
+              <Link to="/signup" className="font-medium text-[#8b5cf6] hover:text-[#a78bfa]">
                 Sign up for free
               </Link>
             </p>
@@ -241,9 +240,9 @@ const Login = () => {
 
           <p className="mt-6 text-center text-xs text-slate-500">
             By signing in, you agree to our{' '}
-            <a href="#" className="text-[#e8c547] hover:underline">Terms of Service</a>
+            <a href="#" className="text-[#8b5cf6] hover:underline">Terms of Service</a>
             {' '}and{' '}
-            <a href="#" className="text-[#e8c547] hover:underline">Privacy Policy</a>
+            <a href="#" className="text-[#8b5cf6] hover:underline">Privacy Policy</a>
           </p>
         </main>
       </div>

@@ -4,6 +4,7 @@ import { MdEmail, MdArrowBack } from 'react-icons/md'
 import { FaCheckCircle, FaMoon, FaSun } from 'react-icons/fa'
 import { authAPI } from '../../services/api'
 import useTheme from '../../hooks/useTheme'
+import BrandMark from '../../components/BrandLogo/BrandMark'
 
 const ForgotPassword = () => {
   const { theme, isDark, toggleTheme } = useTheme()
@@ -30,14 +31,16 @@ const ForgotPassword = () => {
   if (emailSent) {
     return (
       <div className="documentor-shell min-h-screen bg-gradient-to-br from-primary-50 via-white to-accent-50 flex items-center justify-center p-4" data-theme={theme}>
-        <button
-          onClick={toggleTheme}
-          className="fixed right-4 top-4 z-20 flex h-10 w-10 items-center justify-center rounded-lg border border-white/10 bg-white/5 text-slate-300 shadow-lg transition hover:bg-white/10 hover:text-white"
-          aria-label={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
-          title={isDark ? 'Light mode' : 'Dark mode'}
-        >
-          {isDark ? <FaSun /> : <FaMoon />}
-        </button>
+        <header className="absolute inset-x-0 top-0 z-20 flex h-16 items-center justify-end bg-transparent px-4 sm:px-6">
+          <button
+            onClick={toggleTheme}
+            className="flex h-9 w-9 items-center justify-center rounded-lg border border-white/10 bg-white/5 text-slate-300 transition hover:bg-white/10 hover:text-white"
+            aria-label={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
+            title={isDark ? 'Light mode' : 'Dark mode'}
+          >
+            {isDark ? <FaSun className="h-4 w-4" /> : <FaMoon className="h-4 w-4" />}
+          </button>
+        </header>
         <div className="max-w-md w-full">
           <div className="card text-center">
             <div className="inline-flex items-center justify-center w-20 h-20 bg-green-100 rounded-full mb-6">
@@ -68,14 +71,16 @@ const ForgotPassword = () => {
 
   return (
     <div className="documentor-shell min-h-screen bg-gradient-to-br from-primary-50 via-white to-accent-50 flex items-center justify-center p-4" data-theme={theme}>
-      <button
-        onClick={toggleTheme}
-        className="fixed right-4 top-4 z-20 flex h-10 w-10 items-center justify-center rounded-lg border border-white/10 bg-white/5 text-slate-300 shadow-lg transition hover:bg-white/10 hover:text-white"
-        aria-label={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
-        title={isDark ? 'Light mode' : 'Dark mode'}
-      >
-        {isDark ? <FaSun /> : <FaMoon />}
-      </button>
+      <header className="absolute inset-x-0 top-0 z-20 flex h-16 items-center justify-end bg-transparent px-4 sm:px-6">
+        <button
+          onClick={toggleTheme}
+          className="flex h-9 w-9 items-center justify-center rounded-lg border border-white/10 bg-white/5 text-slate-300 transition hover:bg-white/10 hover:text-white"
+          aria-label={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
+          title={isDark ? 'Light mode' : 'Dark mode'}
+        >
+          {isDark ? <FaSun className="h-4 w-4" /> : <FaMoon className="h-4 w-4" />}
+        </button>
+      </header>
       <div className="max-w-md w-full">
         {/* Back Button */}
         <Link 
@@ -88,9 +93,7 @@ const ForgotPassword = () => {
 
         {/* Logo and Header */}
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-16 h-16 bg-primary-600 rounded-2xl mb-4">
-            <span className="text-3xl font-bold text-white">D</span>
-          </div>
+          <BrandMark className="mb-4 inline-block h-16 w-16" />
           <h1 className="text-3xl font-bold text-gray-900 mb-2">Forgot your password?</h1>
           <p className="text-gray-600">No worries, we'll send you reset instructions</p>
         </div>

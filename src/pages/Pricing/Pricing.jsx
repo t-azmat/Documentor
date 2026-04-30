@@ -1,12 +1,15 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { FaCheck, FaTimes, FaCrown, FaRocket, FaStar } from 'react-icons/fa'
+import { FaCheck, FaTimes, FaCrown, FaRocket, FaStar, FaMoon, FaSun } from 'react-icons/fa'
 import { MdArrowBack } from 'react-icons/md'
 import useAuthStore from '../../store/authStore'
+import useTheme from '../../hooks/useTheme'
+import BrandMark from '../../components/BrandLogo/BrandMark'
 
 const Pricing = () => {
   const navigate = useNavigate()
   const { isAuthenticated, updateSubscription } = useAuthStore()
+  const { theme, isDark, toggleTheme } = useTheme()
   const [billingCycle, setBillingCycle] = useState('monthly') // 'monthly' or 'annual'
   const [selectedPlan, setSelectedPlan] = useState(null)
 
@@ -28,7 +31,7 @@ const Pricing = () => {
         { text: 'Priority support', included: false },
       ],
       popular: false,
-      color: 'gray'
+      color: 'purple'
     },
     {
       id: 'premium',
@@ -47,7 +50,7 @@ const Pricing = () => {
         { text: 'Email support', included: true },
       ],
       popular: true,
-      color: 'primary'
+      color: 'violet'
     },
     {
       id: 'team',
@@ -66,7 +69,7 @@ const Pricing = () => {
         { text: 'Priority 24/7 support', included: true },
       ],
       popular: false,
-      color: 'accent'
+      color: 'fuchsia'
     }
   ]
 
@@ -98,23 +101,27 @@ const Pricing = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-primary-50 via-white to-accent-50">
+    <div className="documentor-shell auth-animated-bg min-h-screen overflow-hidden bg-[#0c0e13]" data-theme={theme}>
       {/* Header */}
-      <header className="bg-white shadow-sm">
+      <header className="border-b border-transparent bg-transparent shadow-none">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className="flex items-center justify-center w-10 h-10 bg-primary-600 rounded-lg">
-                <span className="text-xl font-bold text-white">D</span>
-              </div>
-              <span className="text-xl font-bold text-gray-900">Documentor</span>
+              <BrandMark className="h-10 w-10 flex-shrink-0" />
+              <span className="text-xl font-black tracking-normal text-white">
+                Docu<span className="text-[#8b5cf6]">Mentor</span>
+              </span>
             </div>
-            <button
-              onClick={() => navigate('/login')}
-              className="text-primary-600 hover:text-primary-700 font-medium"
-            >
-              {isAuthenticated ? 'Dashboard' : 'Sign in'}
-            </button>
+            <div className="flex items-center gap-3">
+              <button
+                onClick={toggleTheme}
+                className="flex h-9 w-9 items-center justify-center rounded-lg border border-[#8b5cf6]/20 bg-[#8b5cf6]/10 text-[#8b5cf6] transition hover:bg-[#8b5cf6]/15"
+                aria-label={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
+                title={isDark ? 'Light mode' : 'Dark mode'}
+              >
+                {isDark ? <FaSun /> : <FaMoon />}
+              </button>
+            </div>
           </div>
         </div>
       </header>
@@ -142,12 +149,12 @@ const Pricing = () => {
           </p>
 
           {/* Billing Toggle */}
-          <div className="inline-flex items-center bg-white rounded-full p-1 shadow-md">
+          <div className="inline-flex items-center rounded-full border border-[#8b5cf6]/20 bg-white p-1 shadow-md">
             <button
               onClick={() => setBillingCycle('monthly')}
               className={`px-6 py-2 rounded-full font-medium transition-all duration-200 ${
                 billingCycle === 'monthly'
-                  ? 'bg-primary-600 text-white'
+                  ? 'bg-[#8b5cf6] text-white'
                   : 'text-gray-700 hover:text-gray-900'
               }`}
             >
@@ -157,12 +164,12 @@ const Pricing = () => {
               onClick={() => setBillingCycle('annual')}
               className={`px-6 py-2 rounded-full font-medium transition-all duration-200 ${
                 billingCycle === 'annual'
-                  ? 'bg-primary-600 text-white'
+                  ? 'bg-[#8b5cf6] text-white'
                   : 'text-gray-700 hover:text-gray-900'
               }`}
             >
               Annual
-              <span className="ml-2 text-xs bg-green-100 text-green-700 px-2 py-1 rounded-full">
+              <span className="ml-2 text-xs bg-[#8b5cf6]/10 text-[#8b5cf6] px-2 py-1 rounded-full">
                 Save 25%
               </span>
             </button>
@@ -179,12 +186,12 @@ const Pricing = () => {
               <div
                 key={plan.id}
                 className={`relative bg-white rounded-2xl shadow-xl overflow-hidden transition-all duration-300 hover:shadow-2xl ${
-                  plan.popular ? 'ring-4 ring-primary-600 scale-105' : ''
+                  plan.popular ? 'ring-4 ring-[#8b5cf6] scale-105' : ''
                 }`}
               >
                 {/* Popular Badge */}
                 {plan.popular && (
-                  <div className="absolute top-0 right-0 bg-primary-600 text-white px-4 py-1 text-sm font-medium rounded-bl-lg">
+                  <div className="absolute top-0 right-0 bg-[#8b5cf6] text-white px-4 py-1 text-sm font-medium rounded-bl-lg">
                     Most Popular
                   </div>
                 )}
@@ -192,8 +199,8 @@ const Pricing = () => {
                 <div className="p-8">
                   {/* Plan Header */}
                   <div className="flex items-center gap-3 mb-4">
-                    <div className={`p-3 bg-${plan.color}-100 rounded-lg`}>
-                      <Icon className={`text-2xl text-${plan.color}-600`} />
+                    <div className="p-3 bg-[#8b5cf6]/10 rounded-lg">
+                      <Icon className="text-2xl text-[#8b5cf6]" />
                     </div>
                     <div>
                       <h3 className="text-2xl font-bold text-gray-900">{plan.name}</h3>
@@ -213,7 +220,7 @@ const Pricing = () => {
                       </span>
                     </div>
                     {billingCycle === 'annual' && savings > 0 && (
-                      <p className="text-sm text-green-600 font-medium mt-2">
+                      <p className="text-sm text-[#8b5cf6] font-medium mt-2">
                         Save {savings}% compared to monthly
                       </p>
                     )}
@@ -225,8 +232,8 @@ const Pricing = () => {
                     disabled={selectedPlan === plan.id}
                     className={`w-full py-3 px-6 rounded-lg font-medium transition-all duration-200 ${
                       plan.popular
-                        ? 'bg-primary-600 text-white hover:bg-primary-700'
-                        : 'bg-gray-100 text-gray-900 hover:bg-gray-200'
+                        ? 'bg-[#8b5cf6] text-white hover:bg-[#7c3aed]'
+                        : 'bg-[#8b5cf6]/10 text-[#8b5cf6] hover:bg-[#8b5cf6]/15'
                     } ${selectedPlan === plan.id ? 'opacity-50 cursor-not-allowed' : ''}`}
                   >
                     {selectedPlan === plan.id ? 'Processing...' : plan.id === 'free' ? 'Get Started' : 'Subscribe Now'}
@@ -237,7 +244,7 @@ const Pricing = () => {
                     {plan.features.map((feature, index) => (
                       <li key={index} className="flex items-start gap-3">
                         {feature.included ? (
-                          <FaCheck className="text-green-500 mt-1 flex-shrink-0" />
+                          <FaCheck className="text-[#8b5cf6] mt-1 flex-shrink-0" />
                         ) : (
                           <FaTimes className="text-gray-300 mt-1 flex-shrink-0" />
                         )}
@@ -293,7 +300,7 @@ const Pricing = () => {
       <footer className="bg-white border-t border-gray-200 mt-12">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           <p className="text-center text-gray-600 text-sm">
-            © 2025 Documentor. All rights reserved.
+            &copy; 2025 Documentor. All rights reserved.
           </p>
         </div>
       </footer>

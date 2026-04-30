@@ -61,29 +61,39 @@ body {
 .guided-editor p[data-doc-style="references"] { text-align: left; }
 .guided-editor:focus { outline: none; }
 
-/* DocuMentor app theme, adapted from the provided documentor.jsx design. */
+/* DocuMentor app theme. */
 .documentor-shell {
-  --doc-bg: #0c0e13;
-  --doc-surface: #13161e;
-  --doc-surface-2: #1a1e29;
-  --doc-border: rgba(255, 255, 255, 0.1);
-  --doc-gold: #e8c547;
-  --doc-gold-soft: rgba(232, 197, 71, 0.12);
+  --doc-bg: #020204;
+  --doc-surface: #09090d;
+  --doc-surface-2: #14111f;
+  --doc-border: rgba(139, 92, 246, 0.24);
+  --doc-gold: #8b5cf6;
+  --doc-gold-soft: rgba(139, 92, 246, 0.16);
+  --doc-logo-start: #8b5cf6;
+  --doc-logo-mid: #5b21b6;
+  --doc-logo-end: #38bdf8;
+  --doc-logo-spark: #a78bfa;
+  --doc-logo-shadow: rgba(139, 92, 246, 0.34);
   --doc-text: #eef0f6;
-  --doc-muted: #8a93a5;
+  --doc-muted: #a5a0b8;
   background: var(--doc-bg);
   color: var(--doc-text);
 }
 
 .documentor-shell[data-theme="light"] {
-  --doc-bg: #f5f7fb;
+  --doc-bg: #ffffff;
   --doc-surface: #ffffff;
-  --doc-surface-2: #eef2f7;
-  --doc-border: rgba(15, 23, 42, 0.12);
-  --doc-gold: #b88711;
-  --doc-gold-soft: rgba(184, 135, 17, 0.12);
-  --doc-text: #111827;
-  --doc-muted: #5f6878;
+  --doc-surface-2: #f5f3ff;
+  --doc-border: rgba(109, 40, 217, 0.18);
+  --doc-gold: #7c3aed;
+  --doc-gold-soft: rgba(124, 58, 237, 0.12);
+  --doc-logo-start: #7c3aed;
+  --doc-logo-mid: #6d28d9;
+  --doc-logo-end: #0ea5e9;
+  --doc-logo-spark: #8b5cf6;
+  --doc-logo-shadow: rgba(124, 58, 237, 0.24);
+  --doc-text: #171321;
+  --doc-muted: #675f78;
   background: var(--doc-bg);
   color: var(--doc-text);
 }
@@ -115,6 +125,52 @@ body {
   color: var(--doc-text) !important;
 }
 
+.documentor-shell[data-theme="light"] .bg-\[\#8b5cf6\],
+.documentor-shell[data-theme="light"] .bg-\[\#7c3aed\],
+.documentor-shell[data-theme="light"] .bg-primary-600,
+.documentor-shell[data-theme="light"] .bg-primary-700,
+.documentor-shell[data-theme="light"] .bg-blue-600,
+.documentor-shell[data-theme="light"] .bg-blue-700,
+.documentor-shell[data-theme="light"] .bg-indigo-600,
+.documentor-shell[data-theme="light"] .bg-purple-600,
+.documentor-shell[data-theme="light"] .bg-purple-700,
+.documentor-shell[data-theme="light"] .btn-primary {
+  color: #ffffff !important;
+}
+
+.documentor-shell[data-theme="light"] .bg-\[\#8b5cf6\] *,
+.documentor-shell[data-theme="light"] .bg-\[\#7c3aed\] *,
+.documentor-shell[data-theme="light"] .bg-primary-600 *,
+.documentor-shell[data-theme="light"] .bg-primary-700 *,
+.documentor-shell[data-theme="light"] .bg-blue-600 *,
+.documentor-shell[data-theme="light"] .bg-blue-700 *,
+.documentor-shell[data-theme="light"] .bg-indigo-600 *,
+.documentor-shell[data-theme="light"] .bg-purple-600 *,
+.documentor-shell[data-theme="light"] .bg-purple-700 *,
+.documentor-shell[data-theme="light"] .btn-primary * {
+  color: #ffffff !important;
+}
+
+.documentor-shell[data-theme="light"] .bg-green-50 *,
+.documentor-shell[data-theme="light"] .bg-yellow-50 *,
+.documentor-shell[data-theme="light"] .bg-red-50 *,
+.documentor-shell[data-theme="light"] .bg-gray-50 *,
+.documentor-shell[data-theme="light"] .bg-gray-100 *,
+.documentor-shell[data-theme="light"] .bg-white *,
+.documentor-shell[data-theme="light"] .card * {
+  color: inherit !important;
+}
+
+.documentor-shell[data-theme="light"] .bg-green-50,
+.documentor-shell[data-theme="light"] .bg-yellow-50,
+.documentor-shell[data-theme="light"] .bg-red-50,
+.documentor-shell[data-theme="light"] .bg-gray-50,
+.documentor-shell[data-theme="light"] .bg-gray-100,
+.documentor-shell[data-theme="light"] .bg-white,
+.documentor-shell[data-theme="light"] .card {
+  color: var(--doc-text) !important;
+}
+
 .documentor-shell[data-theme="light"] .text-slate-400,
 .documentor-shell[data-theme="light"] .text-slate-500,
 .documentor-shell[data-theme="light"] .text-slate-600 {
@@ -126,25 +182,25 @@ body {
   color: #7a8495 !important;
 }
 
-.documentor-shell .text-\[\#e8c547\] {
+.documentor-shell .text-\[\#8b5cf6\] {
   color: var(--doc-gold) !important;
 }
 
-.documentor-shell .bg-\[\#e8c547\] {
+.documentor-shell .bg-\[\#8b5cf6\] {
   background-color: var(--doc-gold) !important;
 }
 
-.documentor-shell .border-\[\#e8c547\] {
+.documentor-shell .border-\[\#8b5cf6\] {
   border-color: var(--doc-gold) !important;
 }
 
-.documentor-shell .bg-\[\#e8c547\]\/10,
-.documentor-shell .bg-\[\#e8c547\]\/12 {
+.documentor-shell .bg-\[\#8b5cf6\]\/10,
+.documentor-shell .bg-\[\#8b5cf6\]\/12 {
   background-color: var(--doc-gold-soft) !important;
 }
 
-.documentor-shell .border-\[\#e8c547\]\/20,
-.documentor-shell .border-\[\#e8c547\]\/30 {
+.documentor-shell .border-\[\#8b5cf6\]\/20,
+.documentor-shell .border-\[\#8b5cf6\]\/30 {
   border-color: color-mix(in srgb, var(--doc-gold) 32%, transparent) !important;
 }
 
@@ -157,23 +213,71 @@ body {
 }
 
 .documentor-shell.bg-gradient-to-br,
-.documentor-shell .bg-gradient-to-br {
+.documentor-shell.bg-gradient-to-r,
+.documentor-shell.bg-gradient-to-l,
+.documentor-shell .bg-gradient-to-br,
+.documentor-shell .bg-gradient-to-r,
+.documentor-shell .bg-gradient-to-l {
   background-image: none !important;
 }
 
+.documentor-shell .bg-gradient-to-r,
+.documentor-shell .bg-gradient-to-l {
+  background-color: var(--doc-surface) !important;
+  border-color: var(--doc-border) !important;
+}
+
+.documentor-shell .bg-gradient-to-br {
+  background-color: var(--doc-surface-2) !important;
+  border-color: var(--doc-border) !important;
+}
+
 .documentor-shell .bg-primary-600,
-.documentor-shell .bg-primary-700 {
+.documentor-shell .bg-primary-700,
+.documentor-shell .bg-blue-600,
+.documentor-shell .bg-blue-700,
+.documentor-shell .bg-indigo-600,
+.documentor-shell .bg-purple-600,
+.documentor-shell .bg-purple-700,
+.documentor-shell .bg-pink-600,
+.documentor-shell .bg-red-600,
+.documentor-shell .bg-orange-600,
+.documentor-shell .bg-emerald-600,
+.documentor-shell .bg-green-600,
+.documentor-shell .btn-primary {
   background-color: var(--doc-gold) !important;
-  color: #0c0e13 !important;
+  color: #ffffff !important;
+  border-color: var(--doc-gold) !important;
 }
 
 .documentor-shell .text-primary-600,
-.documentor-shell .text-primary-700 {
+.documentor-shell .text-primary-700,
+.documentor-shell .text-blue-600,
+.documentor-shell .text-blue-700,
+.documentor-shell .text-indigo-600,
+.documentor-shell .text-indigo-700,
+.documentor-shell .text-purple-600,
+.documentor-shell .text-purple-700,
+.documentor-shell .text-pink-600,
+.documentor-shell .text-orange-600,
+.documentor-shell .text-emerald-600,
+.documentor-shell .text-green-600,
+.documentor-shell .text-green-700,
+.documentor-shell .text-red-600,
+.documentor-shell .text-red-700,
+.documentor-shell .text-yellow-600,
+.documentor-shell .text-yellow-700 {
   color: var(--doc-gold) !important;
 }
 
 .documentor-shell .border-primary-500,
-.documentor-shell .border-primary-600 {
+.documentor-shell .border-primary-600,
+.documentor-shell .border-blue-600,
+.documentor-shell .border-indigo-600,
+.documentor-shell .border-purple-600,
+.documentor-shell .border-pink-600,
+.documentor-shell .border-orange-600,
+.documentor-shell .border-emerald-600 {
   border-color: var(--doc-gold) !important;
 }
 
@@ -213,31 +317,47 @@ body {
 .documentor-shell .bg-gray-100,
 .documentor-shell .bg-blue-50,
 .documentor-shell .bg-indigo-50,
-.documentor-shell .bg-purple-50 {
+.documentor-shell .bg-purple-50,
+.documentor-shell .bg-pink-50,
+.documentor-shell .bg-orange-50,
+.documentor-shell .bg-emerald-50,
+.documentor-shell .bg-green-50,
+.documentor-shell .bg-red-50,
+.documentor-shell .bg-yellow-50 {
   background-color: var(--doc-surface-2) !important;
 }
 
 .documentor-shell .bg-blue-100,
 .documentor-shell .bg-indigo-100,
-.documentor-shell .bg-purple-100 {
+.documentor-shell .bg-purple-100,
+.documentor-shell .bg-pink-100,
+.documentor-shell .bg-orange-100,
+.documentor-shell .bg-emerald-100,
+.documentor-shell .bg-green-100,
+.documentor-shell .bg-red-100,
+.documentor-shell .bg-yellow-100 {
   background-color: var(--doc-gold-soft) !important;
 }
 
-.documentor-shell .bg-blue-600,
-.documentor-shell .bg-blue-700,
-.documentor-shell .bg-indigo-600,
-.documentor-shell .bg-purple-600,
-.documentor-shell .btn-primary {
-  background-color: var(--doc-gold) !important;
-  color: #0c0e13 !important;
-  border-color: var(--doc-gold) !important;
+.documentor-shell .bg-gray-200 {
+  background-color: #e5e7eb !important;
+  color: #111827 !important;
+}
+
+.documentor-shell .bg-gray-200 * {
+  color: #111827 !important;
 }
 
 .documentor-shell .hover\:bg-blue-700:hover,
 .documentor-shell .hover\:bg-indigo-700:hover,
 .documentor-shell .hover\:bg-purple-700:hover,
+.documentor-shell .hover\:bg-pink-700:hover,
+.documentor-shell .hover\:bg-red-700:hover,
+.documentor-shell .hover\:bg-orange-700:hover,
+.documentor-shell .hover\:bg-emerald-700:hover,
+.documentor-shell .hover\:bg-green-700:hover,
 .documentor-shell .btn-primary:hover {
-  background-color: #d7b63d !important;
+  background-color: #6d28d9 !important;
 }
 
 .documentor-shell .btn-secondary {
@@ -258,7 +378,16 @@ body {
 .documentor-shell .text-gray-700,
 .documentor-shell .text-blue-900,
 .documentor-shell .text-indigo-900,
-.documentor-shell .text-purple-900 {
+.documentor-shell .text-purple-900,
+.documentor-shell .text-pink-900,
+.documentor-shell .text-orange-900,
+.documentor-shell .text-emerald-900,
+.documentor-shell .text-green-900,
+.documentor-shell .text-red-900,
+.documentor-shell .text-yellow-900,
+.documentor-shell .text-black,
+.documentor-shell .prose,
+.documentor-shell .prose :where(h1, h2, h3, h4, p, li, span, strong, em, blockquote) {
   color: var(--doc-text) !important;
 }
 
@@ -267,17 +396,18 @@ body {
 .documentor-shell .text-gray-400,
 .documentor-shell .text-blue-800,
 .documentor-shell .text-indigo-800,
-.documentor-shell .text-purple-800 {
+.documentor-shell .text-purple-800,
+.documentor-shell .text-pink-800,
+.documentor-shell .text-orange-800,
+.documentor-shell .text-emerald-800,
+.documentor-shell .text-green-800,
+.documentor-shell .text-red-800,
+.documentor-shell .text-yellow-800,
+.documentor-shell .text-blue-100,
+.documentor-shell .text-purple-100,
+.documentor-shell .text-orange-100,
+.documentor-shell .text-emerald-100 {
   color: var(--doc-muted) !important;
-}
-
-.documentor-shell .text-blue-600,
-.documentor-shell .text-blue-700,
-.documentor-shell .text-indigo-600,
-.documentor-shell .text-indigo-700,
-.documentor-shell .text-purple-600,
-.documentor-shell .text-purple-700 {
-  color: var(--doc-gold) !important;
 }
 
 .documentor-shell .border-gray-100,
@@ -285,14 +415,17 @@ body {
 .documentor-shell .border-gray-300,
 .documentor-shell .border-blue-200,
 .documentor-shell .border-indigo-200,
-.documentor-shell .border-purple-200 {
+.documentor-shell .border-purple-200,
+.documentor-shell .border-pink-200,
+.documentor-shell .border-orange-200,
+.documentor-shell .border-emerald-200,
+.documentor-shell .border-green-200,
+.documentor-shell .border-red-200,
+.documentor-shell .border-yellow-200,
+.documentor-shell .border-green-300,
+.documentor-shell .border-red-300,
+.documentor-shell .border-yellow-300 {
   border-color: var(--doc-border) !important;
-}
-
-.documentor-shell .border-blue-600,
-.documentor-shell .border-indigo-600,
-.documentor-shell .border-purple-600 {
-  border-color: var(--doc-gold) !important;
 }
 
 .documentor-shell input,
@@ -313,8 +446,8 @@ body {
 .documentor-shell textarea:focus,
 .documentor-shell select:focus,
 .documentor-shell .input-field:focus {
-  border-color: rgba(232, 197, 71, 0.55) !important;
-  box-shadow: 0 0 0 3px rgba(232, 197, 71, 0.14) !important;
+  border-color: rgba(139, 92, 246, 0.55) !important;
+  box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.14) !important;
 }
 
 .documentor-shell header form input,
@@ -357,4 +490,80 @@ body {
 .documentor-shell .p-6 > .mb-8:first-child p,
 .documentor-shell .p-6 > .flex:first-child p {
   color: var(--doc-muted) !important;
+}
+
+.auth-animated-bg {
+  position: relative;
+  isolation: isolate;
+  background-color: var(--doc-bg) !important;
+}
+
+.auth-animated-bg > * {
+  position: relative;
+  z-index: 1;
+}
+
+.auth-animated-bg::before,
+.auth-animated-bg::after {
+  content: "";
+  position: absolute;
+  inset: -20%;
+  z-index: 0;
+  pointer-events: none;
+}
+
+.auth-animated-bg::before {
+  background-image:
+    radial-gradient(circle at 16% 22%, rgba(139, 92, 246, 0.28), transparent 34%),
+    radial-gradient(circle at 78% 18%, rgba(124, 58, 237, 0.2), transparent 30%),
+    radial-gradient(circle at 48% 88%, rgba(167, 139, 250, 0.16), transparent 36%);
+  background-size: 120% 120%;
+  opacity: 0.82;
+  transform: translate3d(0, 0, 0);
+  animation: authAuroraDrift 18s ease-in-out infinite alternate;
+}
+
+.auth-animated-bg::after {
+  background: conic-gradient(from 210deg at 50% 50%, transparent, rgba(139, 92, 246, 0.18), transparent, rgba(124, 58, 237, 0.12), transparent);
+  filter: blur(54px);
+  opacity: 0.55;
+  animation: authLightSweep 14s ease-in-out infinite alternate;
+}
+
+.documentor-shell[data-theme="light"].auth-animated-bg::before {
+  background-image:
+    radial-gradient(circle at 16% 22%, rgba(124, 58, 237, 0.2), transparent 34%),
+    radial-gradient(circle at 78% 18%, rgba(139, 92, 246, 0.16), transparent 30%),
+    radial-gradient(circle at 48% 88%, rgba(167, 139, 250, 0.18), transparent 36%);
+  opacity: 0.82;
+}
+
+.documentor-shell[data-theme="light"].auth-animated-bg::after {
+  background: conic-gradient(from 210deg at 50% 50%, transparent, rgba(124, 58, 237, 0.14), transparent, rgba(167, 139, 250, 0.14), transparent);
+  opacity: 0.72;
+}
+
+@keyframes authAuroraDrift {
+  0% {
+    transform: translate3d(-2%, -1%, 0) scale(1);
+  }
+  100% {
+    transform: translate3d(2%, 2%, 0) scale(1.05);
+  }
+}
+
+@keyframes authLightSweep {
+  0% {
+    transform: translate3d(-4%, -2%, 0) scale(1);
+  }
+  100% {
+    transform: translate3d(4%, 3%, 0) scale(1.04);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .auth-animated-bg::before,
+  .auth-animated-bg::after {
+    animation: none;
+  }
 }

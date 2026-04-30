@@ -24,6 +24,7 @@ import {
 import { MdDashboard } from 'react-icons/md'
 import useAuthStore from '../../store/authStore'
 import useTheme from '../../hooks/useTheme'
+import BrandMark from '../BrandLogo/BrandMark'
 
 const menuItems = [
   { icon: MdDashboard, label: 'Dashboard', path: '/dashboard' },
@@ -96,12 +97,10 @@ const Layout = ({ children }) => {
 
         <div className="relative flex items-center justify-between border-b border-white/10 px-5 py-5">
           <Link to="/dashboard" className="flex min-w-0 items-center gap-3 transition-opacity hover:opacity-90">
-            <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg bg-[#e8c547] text-sm font-black text-[#0c0e13] shadow-[0_0_26px_rgba(232,197,71,0.22)]">
-              D
-            </div>
+            <BrandMark className="h-10 w-10 flex-shrink-0" />
             <div className="min-w-0">
               <h1 className="truncate text-lg font-black tracking-normal text-white">
-                Docu<span className="text-[#e8c547]">Mentor</span>
+                Docu<span className="text-[#8b5cf6]">Mentor</span>
               </h1>
               <p className="truncate text-[11px] font-medium text-slate-400">Academic document suite</p>
             </div>
@@ -131,7 +130,7 @@ const Layout = ({ children }) => {
                 }}
                 className={`group relative flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm transition-all duration-200 ${
                   isActive(item.path)
-                    ? 'bg-[#e8c547]/10 text-[#e8c547] shadow-[inset_3px_0_0_#e8c547]'
+                    ? 'bg-[#8b5cf6]/10 text-[#8b5cf6] shadow-[inset_3px_0_0_#8b5cf6]'
                     : 'text-slate-400 hover:bg-white/10 hover:text-white'
                 }`}
               >
@@ -150,8 +149,8 @@ const Layout = ({ children }) => {
         </nav>
 
         <div className="relative border-t border-white/10 p-4">
-          <div className="rounded-lg border border-[#e8c547]/20 bg-[#e8c547]/10 p-3">
-            <div className="mb-1 flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-[#e8c547]">
+          <div className="rounded-lg border border-[#8b5cf6]/20 bg-[#8b5cf6]/10 p-3">
+            <div className="mb-1 flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-[#8b5cf6]">
               <FaCrown />
               {planName} Plan
             </div>
@@ -160,13 +159,13 @@ const Layout = ({ children }) => {
             </p>
             <div className="h-1.5 overflow-hidden rounded-full bg-white/10">
               <div
-                className="h-full rounded-full bg-[#e8c547] transition-all duration-500"
+                className="h-full rounded-full bg-[#8b5cf6] transition-all duration-500"
                 style={{ width: `${percent}%` }}
               />
             </div>
             <button
               onClick={() => navigate('/pricing')}
-              className="mt-3 flex w-full items-center justify-center gap-2 rounded-md bg-[#e8c547] px-3 py-2 text-xs font-black text-[#0c0e13] transition hover:opacity-90"
+              className="mt-3 flex w-full items-center justify-center gap-2 rounded-md bg-[#8b5cf6] px-3 py-2 text-xs font-black text-white transition hover:opacity-90"
             >
               Upgrade
             </button>
@@ -196,7 +195,7 @@ const Layout = ({ children }) => {
             <h2 className="truncate text-lg font-black text-white sm:text-xl">
               {pageTitle.split(' ')[0]}
               {pageTitle.includes(' ') && (
-                <span className="text-[#e8c547]"> {pageTitle.split(' ').slice(1).join(' ')}</span>
+                <span className="text-[#8b5cf6]"> {pageTitle.split(' ').slice(1).join(' ')}</span>
               )}
             </h2>
           </div>
@@ -219,7 +218,7 @@ const Layout = ({ children }) => {
             aria-label="Notifications"
           >
             <FaBell className="h-4 w-4" />
-            <span className="absolute right-2 top-2 h-2 w-2 rounded-full bg-[#e8c547]" />
+            <span className="absolute right-2 top-2 h-2 w-2 rounded-full bg-[#8b5cf6]" />
           </button>
 
           <button
@@ -239,7 +238,7 @@ const Layout = ({ children }) => {
             <FaUpload className="h-4 w-4" />
           </button>
 
-          <div className="flex h-9 w-9 items-center justify-center rounded-full border-2 border-[#e8c547]/30 bg-[#e8c547] text-xs font-black text-[#0c0e13]">
+          <div className="flex h-9 w-9 items-center justify-center rounded-full border-2 border-[#8b5cf6]/30 bg-[#8b5cf6] text-xs font-black text-white">
             {initials}
           </div>
         </header>
