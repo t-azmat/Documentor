@@ -245,20 +245,9 @@ body {
 .documentor-shell .bg-emerald-600,
 .documentor-shell .bg-green-600,
 .documentor-shell .btn-primary {
-  background-color: #ffffff !important;
-  color: var(--doc-gold) !important;
-  border-color: rgba(139, 92, 246, 0.28) !important;
-}
-
-.documentor-shell button,
-.documentor-shell .btn-primary,
-.documentor-shell .btn-secondary,
-.documentor-shell .documentor-action-button,
-.documentor-shell button *,
-.documentor-shell .btn-primary *,
-.documentor-shell .btn-secondary *,
-.documentor-shell .documentor-action-button * {
-  color: var(--doc-gold) !important;
+  background-color: var(--doc-gold) !important;
+  color: #ffffff !important;
+  border-color: var(--doc-gold) !important;
 }
 
 .documentor-shell .text-primary-600,
@@ -368,20 +357,20 @@ body {
 .documentor-shell .hover\:bg-emerald-700:hover,
 .documentor-shell .hover\:bg-green-700:hover,
 .documentor-shell .btn-primary:hover {
-  background-color: #f5f3ff !important;
+  background-color: #6d28d9 !important;
 }
 
 .documentor-shell .btn-secondary {
-  background-color: #ffffff !important;
-  color: var(--doc-gold) !important;
-  border-color: rgba(139, 92, 246, 0.28) !important;
+  background-color: var(--doc-surface-2) !important;
+  color: var(--doc-text) !important;
+  border-color: var(--doc-border) !important;
 }
 
 .documentor-shell .btn-secondary:hover,
 .documentor-shell .hover\:bg-gray-50:hover,
 .documentor-shell .hover\:bg-gray-100:hover,
 .documentor-shell .hover\:bg-blue-50:hover {
-  background-color: #f5f3ff !important;
+  background-color: var(--doc-gold-soft) !important;
 }
 
 .documentor-shell .text-gray-900,
@@ -488,7 +477,7 @@ body {
 .documentor-shell .documentor-action-button *,
 .documentor-shell[data-theme="light"] .documentor-action-button,
 .documentor-shell[data-theme="light"] .documentor-action-button * {
-  color: var(--doc-gold) !important;
+  color: #ffffff !important;
 }
 
 .documentor-shell table,
