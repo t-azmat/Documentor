@@ -8,7 +8,7 @@ const templates = [
     style: 'APA',
     organization: 'American Psychological Association',
     description: 'Author-date citation system. Widely used in social sciences, psychology, education, and nursing.',
-    color: '#3B82F6',
+    color: '#8B5CF6',
     badge: '7th ed.',
     sections: [
       {
@@ -135,7 +135,7 @@ Author, A. A. (Year). Title. Journal, vol(issue), pages. https://doi.org/xxxxx`,
     style: 'MLA',
     organization: 'Modern Language Association',
     description: 'Parenthetical author-page citation. Standard in humanities, literature, languages, and cultural studies.',
-    color: '#10B981',
+    color: '#7C3AED',
     badge: '9th ed.',
     sections: [
       {
@@ -236,7 +236,7 @@ Author, Last. Book Title. Publisher, Year.`,
     style: 'IEEE',
     organization: 'Institute of Electrical and Electronics Engineers',
     description: 'Numbered bracket citation system. Standard for engineering, computer science, and technical disciplines.',
-    color: '#F59E0B',
+    color: '#A78BFA',
     badge: 'Conference',
     sections: [
       {
@@ -347,7 +347,7 @@ Body text [1].
     style: 'Chicago',
     organization: 'Chicago Manual of Style',
     description: 'Two systems: Notes-Bibliography (humanities) and Author-Date (sciences). Highly flexible and comprehensive.',
-    color: '#EF4444',
+    color: '#6D28D9',
     badge: '17th ed.',
     sections: [
       {
@@ -449,7 +449,7 @@ Last, First. "Article Title." Journal Name vol., no. issue (Year): pages.`,
     style: 'Harvard',
     organization: 'Author-Date System (UK / Australian universities)',
     description: 'Author-date system widely used in UK, Australian, and South African universities. No single official manual — follows institutional guidelines.',
-    color: '#8B5CF6',
+    color: '#C084FC',
     badge: 'Author-Date',
     sections: [
       {
@@ -547,20 +547,20 @@ Last, A.B. (Year) Title of Book, Publisher, City.`,
 ]
 
 const SECTION_ICONS = {
-  typography: <FaFont className="text-blue-500" />,
-  margins:    <FaRuler className="text-green-500" />,
-  headings:   <FaFileAlt className="text-yellow-500" />,
-  intext:     <FaQuoteRight className="text-purple-500" />,
-  references: <FaListUl className="text-red-500" />,
-  examples:   <FaTag className="text-teal-500" />,
+  typography: <FaFont className="text-[#8b5cf6]" />,
+  margins:    <FaRuler className="text-[#a78bfa]" />,
+  headings:   <FaFileAlt className="text-[#c084fc]" />,
+  intext:     <FaQuoteRight className="text-[#7c3aed]" />,
+  references: <FaListUl className="text-[#b56cff]" />,
+  examples:   <FaTag className="text-[#ddd6fe]" />,
 }
 
 const STYLE_COLORS = {
-  APA:     { bg: 'bg-blue-50',   border: 'border-blue-200',   badge: 'bg-blue-100 text-blue-800',   tab: 'bg-blue-600'   },
-  MLA:     { bg: 'bg-green-50',  border: 'border-green-200',  badge: 'bg-green-100 text-green-800', tab: 'bg-green-600'  },
-  IEEE:    { bg: 'bg-amber-50',  border: 'border-amber-200',  badge: 'bg-amber-100 text-amber-800', tab: 'bg-amber-500'  },
-  Chicago: { bg: 'bg-red-50',    border: 'border-red-200',    badge: 'bg-red-100 text-red-800',     tab: 'bg-red-600'    },
-  Harvard: { bg: 'bg-purple-50', border: 'border-purple-200', badge: 'bg-purple-100 text-purple-800', tab: 'bg-purple-600' },
+  APA:     { bg: 'bg-purple-50', border: 'border-purple-500/50', badge: 'bg-purple-500/15 text-[#c4b5fd]', tab: 'bg-[#8b5cf6]' },
+  MLA:     { bg: 'bg-purple-50', border: 'border-violet-500/50', badge: 'bg-violet-500/15 text-[#c4b5fd]', tab: 'bg-[#7c3aed]' },
+  IEEE:    { bg: 'bg-purple-50', border: 'border-fuchsia-500/50', badge: 'bg-fuchsia-500/15 text-[#e9d5ff]', tab: 'bg-[#a78bfa]' },
+  Chicago: { bg: 'bg-purple-50', border: 'border-purple-700/60', badge: 'bg-purple-700/20 text-[#ddd6fe]', tab: 'bg-[#6d28d9]' },
+  Harvard: { bg: 'bg-purple-50', border: 'border-purple-400/60', badge: 'bg-purple-400/20 text-[#f3e8ff]', tab: 'bg-[#c084fc]' },
 }
 
 const Templates = () => {
@@ -611,7 +611,7 @@ const Templates = () => {
               onClick={() => setSelectedStyle(style)}
               className={`px-4 py-2 rounded-lg font-medium transition-all text-sm ${
                 selectedStyle === style
-                  ? 'bg-blue-600 text-white shadow-sm'
+                  ? 'bg-[#8b5cf6] text-white shadow-sm'
                   : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
               }`}
             >
@@ -670,7 +670,7 @@ const Templates = () => {
                   <button
                     onClick={() => handleDownloadSample(template)}
                     className="flex-1 py-2 px-3 text-sm font-medium text-white rounded-lg transition-colors flex items-center justify-center gap-1.5"
-                    style={{ backgroundColor: template.color }}
+                    style={{ backgroundColor: template.color, color: '#ffffff' }}
                   >
                     <FaDownload className="text-xs" />
                     Sample
@@ -685,7 +685,7 @@ const Templates = () => {
       {/* Quick reference summary */}
       <div className="mt-8 bg-white rounded-xl border border-gray-200 overflow-hidden">
         <div className="px-6 py-4 border-b border-gray-100 flex items-center gap-3">
-          <FaBook className="text-blue-600" />
+          <FaBook className="text-[#8b5cf6]" />
           <h2 className="text-base font-bold text-gray-900">Quick Comparison</h2>
         </div>
         <div className="overflow-x-auto">
@@ -693,11 +693,11 @@ const Templates = () => {
             <thead>
               <tr className="bg-gray-50 border-b border-gray-200">
                 <th className="text-left px-4 py-3 font-semibold text-gray-700">Feature</th>
-                <th className="text-left px-4 py-3 font-semibold text-blue-700">APA 7</th>
-                <th className="text-left px-4 py-3 font-semibold text-green-700">MLA 9</th>
-                <th className="text-left px-4 py-3 font-semibold text-amber-700">IEEE</th>
-                <th className="text-left px-4 py-3 font-semibold text-red-700">Chicago 17</th>
-                <th className="text-left px-4 py-3 font-semibold text-purple-700">Harvard</th>
+                <th className="text-left px-4 py-3 font-semibold text-[#8b5cf6]">APA 7</th>
+                <th className="text-left px-4 py-3 font-semibold text-[#a78bfa]">MLA 9</th>
+                <th className="text-left px-4 py-3 font-semibold text-[#c084fc]">IEEE</th>
+                <th className="text-left px-4 py-3 font-semibold text-[#7c3aed]">Chicago 17</th>
+                <th className="text-left px-4 py-3 font-semibold text-[#ddd6fe]">Harvard</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
@@ -742,7 +742,7 @@ const Templates = () => {
                 <button
                   onClick={() => handleDownloadSample(previewTemplate)}
                   className="flex items-center gap-2 text-sm font-medium px-3 py-1.5 rounded-lg text-white transition-colors"
-                  style={{ backgroundColor: previewTemplate.color }}
+                  style={{ backgroundColor: previewTemplate.color, color: '#ffffff' }}
                 >
                   <FaDownload className="text-xs" />
                   Download Sample
@@ -821,7 +821,7 @@ const Templates = () => {
                         <div key={idx} className="flex gap-3 items-start">
                           <span
                             className="flex-shrink-0 w-5 h-5 rounded-full flex items-center justify-center text-white text-xs font-bold mt-0.5"
-                            style={{ backgroundColor: previewTemplate.color }}
+                            style={{ backgroundColor: previewTemplate.color, color: '#ffffff' }}
                           >
                             {idx + 1}
                           </span>

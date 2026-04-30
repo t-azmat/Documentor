@@ -6,24 +6,24 @@ import useAuthStore from '../../store/authStore'
 const StatCard = ({ icon: Icon, label, value, tone = 'blue' }) => {
   const tones = {
     blue: {
-      card: 'border-sky-400/25 bg-sky-400/10',
-      icon: 'bg-sky-400/15 text-sky-300',
-      accent: 'bg-sky-400'
+      card: 'border-purple-400/25 bg-purple-400/10',
+      icon: 'bg-purple-400/15 text-purple-200',
+      accent: 'bg-purple-400'
     },
     green: {
-      card: 'border-emerald-400/25 bg-emerald-400/10',
-      icon: 'bg-emerald-400/15 text-emerald-300',
-      accent: 'bg-emerald-400'
+      card: 'border-violet-400/25 bg-violet-400/10',
+      icon: 'bg-violet-400/15 text-violet-200',
+      accent: 'bg-violet-400'
     },
     amber: {
-      card: 'border-amber-400/25 bg-amber-400/10',
-      icon: 'bg-amber-400/15 text-amber-300',
-      accent: 'bg-amber-400'
+      card: 'border-fuchsia-400/25 bg-fuchsia-400/10',
+      icon: 'bg-fuchsia-400/15 text-fuchsia-200',
+      accent: 'bg-fuchsia-400'
     },
     slate: {
-      card: 'border-slate-400/25 bg-slate-400/10',
-      icon: 'bg-slate-400/15 text-slate-300',
-      accent: 'bg-slate-400'
+      card: 'border-indigo-400/25 bg-indigo-400/10',
+      icon: 'bg-indigo-400/15 text-indigo-200',
+      accent: 'bg-indigo-400'
     }
   }
   const toneClasses = tones[tone] || tones.blue

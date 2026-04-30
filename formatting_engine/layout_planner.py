@@ -188,7 +188,7 @@ def _base_layout_plan(ir: Dict[str, Any], style: Dict[str, Any]) -> Dict[str, An
 
     references = [
         {"index": index, "formatted": _format_reference_deterministically(reference, index, style["citation_style"])}
-        for index, reference in enumerate(ir.get("references", []), start=1)
+        for index, reference in enumerate(_order_raw_references_for_style(ir.get("references", []), style), start=1)
     ]
 
     return {
@@ -462,7 +462,35 @@ def _merge_plan_defaults(plan: Dict[str, Any], ir: Dict[str, Any], style: Dict[s
         merged["references"] = plan["references"]
     if plan.get("citation_map"):
         merged["citation_map"] = plan["citation_map"]
+    merged["references"] = _order_plan_references_for_style(merged.get("references") or [], style)
     return merged
+
+
+def _order_raw_references_for_style(references: List[str], style: Dict[str, Any]) -> List[str]:
+    values = [str(reference or "").strip() for reference in references if str(reference or "").strip()]
+    if str(style.get("style") or "").upper() == "APA":
+        return sorted(values, key=_apa_reference_sort_key)
+    return values
+
+
+def _order_plan_references_for_style(references: List[Dict[str, Any]], style: Dict[str, Any]) -> List[Dict[str, Any]]:
+    values = [reference for reference in references if isinstance(reference, dict)]
+    if str(style.get("style") or "").upper() != "APA":
+        return values
+    ordered = sorted(values, key=lambda reference: _apa_reference_sort_key(str(reference.get("formatted") or "")))
+    return [{**reference, "index": index} for index, reference in enumerate(ordered, start=1)]
+
+
+def _apa_reference_sort_key(reference: str) -> tuple[str, str]:
+    value = html.unescape(str(reference or "")).strip()
+    value = re.sub(r"^\s*(?:\[\d+\]|\d+[.)])\s*", "", value)
+    value = re.sub(r"\s+", " ", value)
+    primary = value.split("(", 1)[0].strip() or value
+    primary = re.sub(r"^[\"'“”‘’]+", "", primary)
+    primary = re.sub(r"^(?:the|a|an)\s+", "", primary, flags=re.I)
+    primary = re.sub(r"[^a-z0-9 ]+", " ", primary.lower())
+    primary = re.sub(r"\s+", " ", primary).strip()
+    return primary, value.lower()
 
 
 async def _build_outline_reconstructed_layout_plan(

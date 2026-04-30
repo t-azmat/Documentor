@@ -81,7 +81,7 @@ async def generate_section_snippets(layout_plan: Dict[str, Any], ir: Dict[str, A
                 layout_plan=layout_plan,
             )
             warnings.extend(section_warnings)
-            snippets[payload["id"]] = snippet
+            snippets[payload["id"]] = _append_missing_float_entries(snippet, payload, layout_plan)
         return snippets, warnings
     except Exception as exc:
         warnings.append(f"Llama 4 Scout setup failed: {exc}. Used deterministic fallback.")
@@ -186,6 +186,8 @@ def _fallback_section_snippet(payload: Dict[str, Any], layout_plan: Dict[str, An
 
     paragraph_formats = payload.get("paragraph_formats", []) or []
     for index, paragraph in enumerate(payload.get("paragraphs", [])):
+        if _looks_like_reference_heading(paragraph) or _looks_like_reference_entry(paragraph):
+            continue
         source_format = paragraph_formats[index] if index < len(paragraph_formats) else {}
         list_item = _list_item_from_paragraph(paragraph, font, body_size, source_format)
         if list_item:
@@ -203,30 +205,65 @@ def _fallback_section_snippet(payload: Dict[str, Any], layout_plan: Dict[str, An
             )
         )
 
+    entries.extend(_float_entries(payload))
+
+    return "[" + ", ".join(entries) + "]"
+
+
+def _append_missing_float_entries(snippet: str, payload: Dict[str, Any], layout_plan: Dict[str, Any]) -> str:
+    float_entries = [
+        entry
+        for entry in _float_entries(payload)
+        if _float_entry_missing_from_snippet(entry, snippet)
+    ]
+    if not float_entries:
+        return snippet
+    trimmed = _ensure_array_literal(snippet).strip()
+    if trimmed == "[]":
+        return "[" + ", ".join(float_entries) + "]"
+    return trimmed[:-1].rstrip() + ", " + ", ".join(float_entries) + "]"
+
+
+def _float_entry_missing_from_snippet(entry: str, snippet: str) -> bool:
+    quoted_values = re.findall(r'"([^"]{3,})"', entry)
+    if any(value in snippet for value in quoted_values):
+        return False
+    return True
+
+
+def _float_entries(payload: Dict[str, Any]) -> List[str]:
+    entries: List[str] = []
     for figure in payload.get("figure_objects", []):
+        image_path = figure.get("image_path")
+        if not image_path:
+            continue
         entries.append(
             "{ type: 'figure', imagePath: "
-            + json.dumps(figure["image_path"])
+            + json.dumps(image_path)
             + ", caption: "
-            + json.dumps(figure.get("caption") or figure["id"])
+            + json.dumps(figure.get("caption") or figure.get("id") or "Figure")
             + " }"
         )
 
     for table in payload.get("table_objects", []):
+        rows = table.get("rows") or []
+        if not rows:
+            continue
         entries.append(
             "{ type: 'table', rows: "
-            + json.dumps(table["rows"])
+            + json.dumps(rows)
             + ", caption: "
-            + json.dumps(table.get("caption") or table["id"])
+            + json.dumps(table.get("caption") or table.get("id") or "Table")
             + " }"
         )
-
-    return "[" + ", ".join(entries) + "]"
+    return entries
 
 
 def _list_item_from_paragraph(paragraph: str, font: str, body_size: int, source_format: Dict[str, Any]) -> str | None:
     text = str(paragraph or "").strip()
     if not text:
+        return None
+    if _looks_like_reference_heading(text) or _looks_like_reference_entry(text):
         return None
 
     unordered = re.match(r"^(?:[-*\u2022\u2023\u25e6]\s+)(.+)$", text)
@@ -251,6 +288,35 @@ def _list_item_from_paragraph(paragraph: str, font: str, body_size: int, source_
         + json.dumps(source_format)
         + " }"
     )
+
+
+def _looks_like_reference_heading(text: str) -> bool:
+    return re.sub(r"\s+", " ", str(text or "").strip()).strip(" .:").lower() in {
+        "references",
+        "bibliography",
+        "works cited",
+    }
+
+
+def _looks_like_reference_entry(text: str) -> bool:
+    value = re.sub(r"\s+", " ", str(text or "").strip())
+    if len(value) < 35:
+        return False
+
+    lower = value.lower()
+    has_bibliographic_signal = bool(
+        re.search(r"\b(?:doi|https?://|arxiv|journal|conference|proceedings|transactions|vol\.|pp\.|pages?)\b", lower)
+        or re.search(r"\(\d{4}[a-z]?\)", value)
+        or re.search(r"\b\d{4}\b", value)
+    )
+
+    if re.match(r"^\[\d+\]\s+\S", value) and has_bibliographic_signal:
+        return True
+    if re.match(r"^\d+\.\s+\S", value) and has_bibliographic_signal:
+        return True
+    if re.match(r"^[A-Z][A-Za-z'`-]+,\s+[A-Z](?:\.\s*)?", value) and has_bibliographic_signal:
+        return True
+    return False
 
 
 def _format_heading_title(payload: Dict[str, Any], layout_plan: Dict[str, Any]) -> str:

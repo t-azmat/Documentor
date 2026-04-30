@@ -96,8 +96,10 @@ def extract_to_ir(input_path: str) -> Tuple[Dict[str, Any], List[str]]:
                     )
             elif extractor_mode in {"nougat", "nougat-ocr"}:
                 warnings.append("Nougat OCR was requested but unavailable/failed; used native PDF extraction.")
+        _apply_missing_section_page_ranges(ir, native_ir)
         ir["figures"] = _extract_figures_with_pymupdf(source_path, runtime_dirs["images"], warnings)
         ir["tables"] = _extract_tables_with_pdfplumber(source_path, warnings)
+        _attach_floats_to_sections(ir)
         recovered_references = _extract_pdf_references_from_text(source_path, warnings)
         if len(recovered_references) > len(ir.get("references") or []):
             ir["references"] = recovered_references
@@ -384,6 +386,8 @@ def _extract_pdf_native_blocks(source_path: Path, warnings: List[str]) -> List[D
                             "type": "heading",
                             "level": _heading_level_from_text(text),
                             "text": _clean_heading_text(text),
+                            "page_start": line.get("page"),
+                            "page_end": line.get("page"),
                             "source_format": _source_format_from_pdf_lines([line]),
                         }
                     )
@@ -483,6 +487,8 @@ def _pdf_lines_to_paragraph_block(lines: List[Dict[str, Any]]) -> Dict[str, Any]
     return {
         "type": "paragraph",
         "text": text,
+        "page_start": min(int(line.get("page") or 0) for line in lines if line.get("page")) if any(line.get("page") for line in lines) else None,
+        "page_end": max(int(line.get("page") or 0) for line in lines if line.get("page")) if any(line.get("page") for line in lines) else None,
         "source_format": _source_format_from_pdf_lines(lines),
     }
 
@@ -774,6 +780,7 @@ def _blocks_to_ir_with_document_chunker(blocks: List[Dict[str, Any]], source_pat
                 "paragraph_formats": [{} for _ in paragraphs],
                 "figures": [],
                 "tables": [],
+                **_page_range_for_text(text, blocks),
             }
         )
 
@@ -824,6 +831,8 @@ def _blocks_to_structured_blocks(blocks: List[Dict[str, Any]]) -> List[Dict[str,
                 "style": style,
                 "section_level": level,
                 "index": index,
+                "page_start": block.get("page_start") or block.get("page"),
+                "page_end": block.get("page_end") or block.get("page"),
                 "word_count": len(text.split()),
                 "char_count": len(text),
             }
@@ -998,6 +1007,7 @@ def _blocks_to_ir(blocks: List[Dict[str, Any]], source_path: Path) -> Dict[str, 
 
             flush_current()
             current = _new_section(int(block.get("level") or 1), clean)
+            _extend_section_page_range(current, block)
             in_abstract = False
             continue
 
@@ -1013,7 +1023,9 @@ def _blocks_to_ir(blocks: List[Dict[str, Any]], source_path: Path) -> Dict[str, 
             continue
 
         if block_type == "table":
-            current["tables"].append(block.get("id"))
+            if current is not None:
+                current["tables"].append(block.get("id"))
+                _extend_section_page_range(current, block)
             continue
 
         if lower.startswith("abstract:"):
@@ -1037,6 +1049,7 @@ def _blocks_to_ir(blocks: List[Dict[str, Any]], source_path: Path) -> Dict[str, 
         if lower not in FRONTMATTER_HEADINGS:
             current["paragraphs"].append(text)
             current.setdefault("paragraph_formats", []).append(block.get("source_format") or {})
+            _extend_section_page_range(current, block)
 
     flush_current()
 
@@ -1583,6 +1596,8 @@ def _extract_tables_with_pdfplumber(source_path: Path, warnings: List[str]) -> L
                     rows = [[cell or "" for cell in row] for row in table if row]
                     if not rows:
                         continue
+                    if _looks_like_reference_table(rows):
+                        continue
                     tables.append(
                         {
                             "id": f"table-{table_id}",
@@ -1595,6 +1610,55 @@ def _extract_tables_with_pdfplumber(source_path: Path, warnings: List[str]) -> L
     except Exception as exc:
         warnings.append(f"Table extraction fallback failed: {exc}")
     return tables
+
+
+def _looks_like_reference_table(rows: List[List[str]]) -> bool:
+    populated_rows = [
+        " ".join(str(cell or "").strip() for cell in row if str(cell or "").strip())
+        for row in rows
+    ]
+    populated_rows = [re.sub(r"\s+", " ", row).strip() for row in populated_rows if row.strip()]
+    if not populated_rows:
+        return False
+
+    combined = " ".join(populated_rows[:4])
+    if (
+        len(combined) > 120
+        and bool(re.search(r"\b(?:19|20)\d{2}\b", combined))
+        and (
+            combined.count(",") >= 4
+            or bool(re.search(r"\bet al\.?\b", combined, re.I))
+            or bool(re.search(r"\b(?:doi|https?://|journal|conference|proceedings|transactions|vol\.|pp\.)\b", combined, re.I))
+        )
+    ):
+        return True
+
+    reference_like = 0
+    for row in populated_rows[:8]:
+        has_year = bool(re.search(r"\b(?:19|20)\d{2}\b", row))
+        has_author_shape = (
+            bool(re.search(r"^[A-Z][A-Za-z'`-]+,\s+[A-Z]", row))
+            or row.count(",") >= 3
+            or bool(re.search(r"^[A-Z][A-Za-z'`-]+(?:\s+[A-Z][A-Za-z'`-]+){1,3},", row))
+        )
+        has_bibliographic_signal = bool(
+            re.search(r"\b(?:doi|https?://|journal|conference|proceedings|transactions|vol\.|pp\.)\b", row, re.I)
+        )
+        if len(row) > 70 and has_year and (has_author_shape or has_bibliographic_signal):
+            reference_like += 1
+
+    if reference_like >= 2:
+        return True
+    first_row = populated_rows[0]
+    return (
+        len(first_row) > 90
+        and bool(re.search(r"\b(?:19|20)\d{2}\b", first_row))
+        and (
+            first_row.count(",") >= 3
+            or bool(re.search(r"\bet al\.?\b", first_row, re.I))
+            or bool(re.search(r"\b(?:doi|https?://|journal|conference|proceedings|transactions|vol\.|pp\.)\b", first_row, re.I))
+        )
+    )
 
 
 def _extract_pdf_references_from_text(source_path: Path, warnings: List[str]) -> List[str]:
@@ -1612,6 +1676,149 @@ def _extract_pdf_references_from_text(source_path: Path, warnings: List[str]) ->
     tail = re.sub(r"(?m)^\s*\S.+?\s+\d+\s+of\s+\d+\s*$", "", tail)
     tail = re.sub(r"(?m)^\s*(?:Universal Journal.+|www\.scipublications\.com.+|DOI:.+)\s*$", "", tail)
     return _split_reference_lines(tail.splitlines())
+
+
+def _attach_floats_to_sections(ir: Dict[str, Any]) -> None:
+    sections = ir.get("sections") or []
+    if not sections:
+        return
+
+    for section in sections:
+        section["figures"] = list(dict.fromkeys(section.get("figures") or []))
+        section["tables"] = list(dict.fromkeys(section.get("tables") or []))
+
+    for figure in ir.get("figures") or []:
+        section = _section_for_page(sections, figure.get("page"))
+        if section is not None and figure.get("id"):
+            section.setdefault("figures", []).append(figure["id"])
+
+    for table in ir.get("tables") or []:
+        section = _section_for_page(sections, table.get("page"))
+        if section is not None and table.get("id"):
+            section.setdefault("tables", []).append(table["id"])
+
+    for section in sections:
+        section["figures"] = list(dict.fromkeys(section.get("figures") or []))
+        section["tables"] = list(dict.fromkeys(section.get("tables") or []))
+
+
+def _apply_missing_section_page_ranges(target_ir: Dict[str, Any], source_ir: Dict[str, Any]) -> None:
+    target_sections = target_ir.get("sections") or []
+    source_sections = [
+        section
+        for section in (source_ir.get("sections") or [])
+        if section.get("page_start") or section.get("page_end")
+    ]
+    if not target_sections or not source_sections:
+        return
+
+    source_by_title = {
+        _normalize_section_title_for_match(section.get("title")): section
+        for section in source_sections
+        if _normalize_section_title_for_match(section.get("title"))
+    }
+    sequential_sources = iter(source_sections)
+    last_source: Dict[str, Any] | None = None
+
+    for target in target_sections:
+        if target.get("page_start") and target.get("page_end"):
+            continue
+
+        normalized = _normalize_section_title_for_match(target.get("title"))
+        source = source_by_title.get(normalized)
+        if source is None:
+            for candidate in sequential_sources:
+                last_source = candidate
+                source = candidate
+                break
+        if source is None:
+            source = last_source
+        if source is None:
+            continue
+
+        if source.get("page_start"):
+            target["page_start"] = source.get("page_start")
+        if source.get("page_end"):
+            target["page_end"] = source.get("page_end")
+
+
+def _normalize_section_title_for_match(title: Any) -> str:
+    value = re.sub(r"<!--.*?-->", "", str(title or ""))
+    value = re.sub(r"^\s*\d+(?:\.\d+)*\.?\s*", "", value)
+    value = re.sub(r"[^a-z0-9 ]+", " ", value.lower())
+    return re.sub(r"\s+", " ", value).strip()
+
+
+def _section_for_page(sections: List[Dict[str, Any]], page: Any) -> Dict[str, Any] | None:
+    try:
+        page_number = int(page)
+    except Exception:
+        page_number = 0
+
+    if page_number > 0:
+        matching = [
+            section
+            for section in sections
+            if int(section.get("page_start") or 0) <= page_number <= int(section.get("page_end") or section.get("page_start") or 0)
+        ]
+        if matching:
+            return matching[-1]
+
+        preceding = [
+            section
+            for section in sections
+            if int(section.get("page_start") or 0) > 0 and int(section.get("page_start") or 0) <= page_number
+        ]
+        if preceding:
+            return preceding[-1]
+
+    return sections[0] if sections else None
+
+
+def _extend_section_page_range(section: Dict[str, Any], block: Dict[str, Any]) -> None:
+    start = block.get("page_start") or block.get("page")
+    end = block.get("page_end") or block.get("page") or start
+    try:
+        start_number = int(start)
+        end_number = int(end)
+    except Exception:
+        return
+    if start_number <= 0 or end_number <= 0:
+        return
+    existing_start = int(section.get("page_start") or start_number)
+    existing_end = int(section.get("page_end") or end_number)
+    section["page_start"] = min(existing_start, start_number)
+    section["page_end"] = max(existing_end, end_number)
+
+
+def _page_range_for_text(text: str, blocks: List[Dict[str, Any]]) -> Dict[str, int]:
+    normalized = _fingerprint_for_page_match(text)
+    if not normalized:
+        return {}
+
+    pages: List[int] = []
+    for block in blocks:
+        block_text = _fingerprint_for_page_match(str(block.get("text") or ""))
+        if not block_text:
+            continue
+        if block_text in normalized or normalized[:180] in block_text:
+            start = block.get("page_start") or block.get("page")
+            end = block.get("page_end") or block.get("page") or start
+            try:
+                pages.extend([int(start), int(end)])
+            except Exception:
+                continue
+
+    pages = [page for page in pages if page > 0]
+    if not pages:
+        return {}
+    return {"page_start": min(pages), "page_end": max(pages)}
+
+
+def _fingerprint_for_page_match(text: str) -> str:
+    value = re.sub(r"\s+", " ", str(text or "").lower()).strip()
+    value = re.sub(r"[^a-z0-9 ]+", "", value)
+    return value[:1200]
 
 
 def _new_section(level: int, title: str) -> Dict[str, Any]:

@@ -144,12 +144,66 @@ function evaluateSnippet(snippet) {
   return value.flatMap((item) => convertStructuredItem(item));
 }
 
+function normalizeText(value) {
+  return String(value || "").replace(/\s+/g, " ").trim();
+}
+
+function isReferenceHeadingText(value) {
+  const normalized = normalizeText(value).replace(/[ .:]+$/g, "").toLowerCase();
+  return ["references", "bibliography", "works cited"].includes(normalized);
+}
+
+function isReferenceEntryText(value) {
+  const text = normalizeText(value);
+  if (text.length < 35) {
+    return false;
+  }
+
+  const lower = text.toLowerCase();
+  const hasBibliographicSignal =
+    /\b(?:doi|https?:\/\/|arxiv|journal|conference|proceedings|transactions|vol\.|pp\.|pages?)\b/.test(lower) ||
+    /\(\d{4}[a-z]?\)/i.test(text) ||
+    /\b\d{4}\b/.test(text);
+
+  if (!hasBibliographicSignal) {
+    return false;
+  }
+
+  return (
+    /^\[\d+\]\s+\S/.test(text) ||
+    /^\d+\.\s+\S/.test(text) ||
+    /^[A-Z][A-Za-z'`-]+,\s+[A-Z](?:\.\s*)?/.test(text)
+  );
+}
+
+function structuredItemText(item) {
+  if (item.type === "heading") {
+    return item.title;
+  }
+  if (item.type === "paragraph") {
+    return item.text;
+  }
+  if (item.type === "list") {
+    return Array.isArray(item.items) ? item.items.join(" ") : "";
+  }
+  return "";
+}
+
+function shouldSkipBodyReferenceItem(item) {
+  const text = structuredItemText(item);
+  return isReferenceHeadingText(text) || isReferenceEntryText(text);
+}
+
 function convertStructuredItem(item) {
   if (item instanceof Paragraph || item instanceof Table) {
     return [item];
   }
 
   if (!item || typeof item !== "object") {
+    return [];
+  }
+
+  if (shouldSkipBodyReferenceItem(item)) {
     return [];
   }
 
@@ -196,7 +250,9 @@ function convertStructuredItem(item) {
 
   if (item.type === "list") {
     const sourceFormat = sourcePreservationEnabled() ? item.sourceFormat || {} : {};
-    const items = Array.isArray(item.items) ? item.items : [];
+    const items = (Array.isArray(item.items) ? item.items : []).filter(
+      (text) => !isReferenceHeadingText(text) && !isReferenceEntryText(text),
+    );
     return items.map((text, index) =>
       new Paragraph({
         alignment: bodyAlignmentForItem(item),
